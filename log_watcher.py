@@ -6,11 +6,16 @@ from PyQt6.QtCore import QThread, pyqtSignal
 class LogWatcher(QThread):
     zone_changed = pyqtSignal(str)
     waypoint_discovered = pyqtSignal()
+    quest_item_found = pyqtSignal(str) # Emits item name
+    quest_completed = pyqtSignal(str) # Emits quest name
+    boss_slain = pyqtSignal(str) # Emits boss name
+    trial_completed = pyqtSignal(str) # Emits trial name
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, boss_names_list=None):
         super().__init__()
         self.file_path = file_path
         self.running = True
+        self.boss_names = set(name.lower() for name in boss_names_list) if boss_names_list else set()
 
     def run(self):
         if not self.file_path or not os.path.exists(self.file_path):
@@ -43,6 +48,31 @@ class LogWatcher(QThread):
                         # Waypoint discovery pattern
                         if " : You have discovered a waypoint" in line:
                             self.waypoint_discovered.emit()
+
+                        # Quest item found pattern
+                        quest_item_match = re.search(r" : You have received the (.*?) quest item\.", line)
+                        if quest_item_match:
+                            item_name = quest_item_match.group(1).strip()
+                            self.quest_item_found.emit(item_name)
+
+                        # Quest completed pattern (more generic)
+                        quest_completed_match = re.search(r" : Quest Complete: (.*?)\.", line)
+                        if quest_completed_match:
+                            quest_name = quest_completed_match.group(1).strip()
+                            self.quest_completed.emit(quest_name)
+
+                        # Boss slain pattern (using dynamic boss names)
+                        for boss in self.boss_names:
+                            if f" : You have slain {boss}" in line.lower():
+                                self.boss_slain.emit(boss.capitalize())
+                                break
+                        
+                        # Trial completed pattern
+                        trial_match = re.search(r" : You have completed the Trial of (.*?)", line)
+                        if trial_match:
+                            trial_name = trial_match.group(1).strip()
+                            self.trial_completed.emit(trial_name)
+
             
             time.sleep(0.5)
 

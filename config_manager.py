@@ -11,7 +11,8 @@ DEFAULT_CONFIG = {
     "theme": "Exile Dark",
     "opacity": 0.85,
     "click_through": False,
-    "compact_mode": False
+    "compact_mode": False,
+    "base_font_size": 9
 }
 
 CONFIG_FILE = "config.json"
