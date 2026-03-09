@@ -1,0 +1,35 @@
+import json
+import os
+
+DEFAULT_CONFIG = {
+    "window_x": 100,
+    "window_y": 100,
+    "window_width": 300,
+    "window_height": 150,
+    "current_step": 0,
+    "client_txt_path": "/mnt/a24ff19e-fc7e-47ad-a274-4c1eb1999c3a/SteamLibrary/steamapps/common/Path of Exile/logs/Client.txt",
+    "theme": "Exile Dark",
+    "opacity": 0.85,
+    "click_through": False,
+    "compact_mode": False
+}
+
+CONFIG_FILE = "config.json"
+
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                config = json.load(f)
+                # Ensure all default keys exist
+                for key, value in DEFAULT_CONFIG.items():
+                    if key not in config:
+                        config[key] = value
+                return config
+        except Exception:
+            return DEFAULT_CONFIG.copy()
+    return DEFAULT_CONFIG.copy()
+
+def save_config(config):
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(config, f, indent=4)
