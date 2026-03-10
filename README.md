@@ -24,3 +24,42 @@ The app provides precise instructions on where to go, which quests to complete (
 🐧 Built for Linux
 
 Developed with Linux gamers in mind (playing via Steam Proton/Wine), Tuxile ActRunner utilizes Python and PyQt to provide a native, hassle-free overlay experience. It's the perfect companion for league starts, optimizing your leveling process, and making sure you never miss a crucial skill point or trial again.
+
+## Installation
+
+### Prerequisites
+
+Before running Tuxile ActRunner, ensure you have the following installed:
+
+*   **Python 3.8+**
+*   **pip** (Python package installer)
+
+### Automated Setup and Running
+
+To simplify the setup and running of the application, two scripts have been prepared:
+
+1.  **`setup.sh`**: This script automatically creates a virtual environment, installs all required dependencies, and checks if Python and `pip` are installed.
+
+2.  **`run.sh`**: This script activates the virtual environment (if it exists) and runs the main `main.py` application.
+
+### First-time Setup (Configuration)
+
+1.  **Clone the repository (if you haven't already):**
+    ```bash
+    git clone https://github.com/TwojaNazwaUzytkownika/Tuxile-ActRunner.git
+    cd Tuxile-ActRunner
+    ```
+
+2.  **Run the setup script:**
+    ```bash
+    ./setup.sh
+    ```
+    This script will guide you through the dependency installation process. On the first launch of the application, you will be prompted to select the Path of Exile `Client.txt` file. The application will also attempt to automatically locate this file in common directories.
+
+### Subsequent Runs
+
+After the initial setup and configuration, you can run the application directly using:
+
+```bash
+./run.sh
+```

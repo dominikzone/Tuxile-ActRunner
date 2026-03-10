@@ -773,10 +773,18 @@ class PoEOverlay(QWidget):
 
     def closeEvent(self, event):
         # Stop log watcher thread before exiting
+        # Ensure all data is saved before closing
+        self.save_completed_data()
+        save_config(self.config)
+
         if hasattr(self, 'watcher'):
-            self.watcher.stop()
+            print("Main: Requesting LogWatcher interruption...")
+            self.watcher.requestInterruption()
             self.watcher.wait()
+            print("Main: LogWatcher thread finished.")
         event.accept()
+        print("Main: closeEvent accepted.")
+        QApplication.instance().quit() # Explicitly quit the application
 
     def reset_player_progress(self):
         self.config["current_step"] = 0
@@ -796,7 +804,7 @@ class PoEOverlay(QWidget):
             save_config(self.config)
             # Restart watcher
             if hasattr(self, 'watcher'):
-                self.watcher.stop()
+                self.watcher.requestInterruption()
                 self.watcher.wait()
             self.setup_log_watcher()
 
