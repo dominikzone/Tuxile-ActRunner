@@ -189,7 +189,7 @@ class PoEOverlay(QWidget):
 
         # Step Text
         self.step_label = QLabel()
-        self.step_label.setWordWrap(True)
+        self.step_label.setWordWrap(False)
         self.step_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self.step_label.linkActivated.connect(self.on_task_clicked)
         self.step_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
@@ -395,32 +395,22 @@ class PoEOverlay(QWidget):
         self.scale_font()
 
     def scale_font(self):
-        # Base font size and scaling factor
         base_font_size = self.config.get("base_font_size", 12)
-        current_width = self.width()
-
-        # Simple scaling based on width, can be refined
-        scale_factor = current_width / 400 # Assuming 400 is a good base width
-        new_font_size = max(8, int(base_font_size * scale_factor))
 
         font = QFont()
-        font.setPointSize(new_font_size)
-
-        # Apply to relevant labels
+        font.setPointSize(base_font_size)
         self.step_label.setFont(font)
 
-        # Scale other labels proportionally or with different base sizes if needed
         quest_font = QFont()
-        quest_font.setPointSize(max(8, int(13 * scale_factor)))
+        quest_font.setPointSize(max(8, base_font_size + 1))
         self.quest_label.setFont(quest_font)
 
         target_zone_font = QFont()
-        target_zone_font.setPointSize(max(8, int(11 * scale_factor)))
+        target_zone_font.setPointSize(max(8, base_font_size - 1))
         self.target_zone_label.setFont(target_zone_font)
 
-        # Update other labels as necessary
         control_font = QFont()
-        control_font.setPointSize(max(8, int(13 * scale_factor)))
+        control_font.setPointSize(max(8, base_font_size + 1))
         self.move_label.setFont(control_font)
         self.btn_prev.setFont(control_font)
         self.btn_next.setFont(control_font)
@@ -429,15 +419,15 @@ class PoEOverlay(QWidget):
         self.btn_font_increase.setFont(control_font)
 
         reset_font = QFont()
-        reset_font.setPointSize(max(8, int(14 * scale_factor)))
+        reset_font.setPointSize(max(8, base_font_size + 2))
         self.btn_reset.setFont(reset_font)
 
         close_font = QFont()
-        close_font.setPointSize(max(8, int(14 * scale_factor)))
+        close_font.setPointSize(max(8, base_font_size + 2))
         self.close_btn.setFont(close_font)
 
         zone_display_font = QFont()
-        zone_display_font.setPointSize(max(6, int(10 * scale_factor)))
+        zone_display_font.setPointSize(max(6, base_font_size - 2))
         self.zone_display.setFont(zone_display_font)
 
 
@@ -764,6 +754,7 @@ class PoEOverlay(QWidget):
                          self.line.height() + \
                          self.progress_bar.height() + \
                          self.version_label.height() + \
+                         self.step_label.height() + \
                          vertical_margins + 20 # Extra padding
         
         # Ensure the total height is at least a reasonable minimum, e.g., for controls only
