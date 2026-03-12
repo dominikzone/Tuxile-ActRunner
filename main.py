@@ -1,822 +1,411 @@
 import sys
 import os
 import re
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFileDialog, QGraphicsDropShadowEffect, QProgressBar, QSizePolicy
-from PyQt6.QtCore import Qt, QPoint, QRect, QSize, QPropertyAnimation, QEasingCurve, QTimer
-from PyQt6.QtGui import QFont, QPalette, QColor, QKeyEvent, QWheelEvent
+from PyQt6.QtWidgets import QApplication, QFileDialog
+from PyQt6.QtCore import Qt, QObject, pyqtProperty, pyqtSignal, pyqtSlot, QPoint, QUrl, QTimer
+from PyQt6.QtQml import QQmlApplicationEngine
 
 from config_manager import load_config, save_config
-from walkthrough_data import WALKTHROUGH, TOWNS
+from walkthrough_data import WALKTHROUGH, TOWNS, ICON_MAPPING
 from log_watcher import LogWatcher
 
-class PoEOverlay(QWidget):
-    def __init__(self):
+class OverlayBridge(QObject):
+    currentStepIndexChanged = pyqtSignal()
+    actTitleChanged = pyqtSignal()
+    substepsChanged = pyqtSignal()
+    windowPosChanged = pyqtSignal()
+    windowSizeChanged = pyqtSignal()
+    opacityChanged = pyqtSignal()
+    baseFontSizeChanged = pyqtSignal()
+    clickThroughChanged = pyqtSignal()
+    currentZoneChanged = pyqtSignal()
+
+    def __init__(self, config):
         super().__init__()
-        self.config = load_config()
-        self.is_moving = False
-        self.is_resizing = False
-        self.drag_start_pos = QPoint()
-        self.window_start_rect = QRect()
-        
-        # Load persistent completion data
+        self.config = config
         self.completed_data = self.config.get("completed_data", {})
-        self.sync_current_completed_set()
-        self.app_version = "v00.02" # Application version
+        # FIX #1: Track which steps were auto-completed by log watcher
+        # so we don't re-complete them when player backtracks
+        self.auto_completed_steps = set(
+            int(k) for k in self.completed_data.keys()
+        )
+        self._current_zone = "Waiting..."
+        self._substeps = []
+        self._html_cache = {}  # {step_idx: [processed html lines]} — avoids re-running regex on every substep refresh
+        self.update_substeps()
 
-        self.boss_names_for_log_watcher = set()
-        for step_data in WALKTHROUGH:
-            text = step_data.get("text", "")
-            # More specific regex for boss names, avoiding common words or numbers
-            # This regex will capture words or phrases after "Kill " and before a punctuation or keyword
-            boss_matches = re.findall(r"Kill ([A-Za-z][a-zA-Z' -]+?)(?:\.|,| for |\[SKILL\]|\n)", text)
-            for boss in boss_matches:
-                # Exclude generic terms and ensure it's not just a number or very short word
-                if boss.strip().lower() not in ["hillock", "crab", "spider", "guards", "general", "overseer", "puppet mistress", "brutus & shavronne", "solaris & lunaris", "depraved trinity", "all monsters", "justicar", "gemling legion", "infernal king", "dusk", "dawn"] and len(boss.strip()) > 2: # Added more exclusions and length check
-                    self.boss_names_for_log_watcher.add(boss.strip())
-            
-            # Additional extraction for specific boss names explicitly mentioned
-            specific_bosses_list = ["Hillock", "Hailrake", "Brutus", "Merveil", "Fidelitas", "White Beast", "Vaal Oversoul", "Doedre", "Maligaro", "Shavronne", "Malachai", "Avarius", "Kitava", "Dishonored Queen", "Tukohama", "Abberath", "Puppet Mistress", "Brine King", "Greust", "Gruthkul", "Arakaali", "Dusk", "Dawn", "Shakari", "Basilisk", "Depraved Trinity", "Vilenta", "Gemling Legion", "Infernal King"]
-            for boss in specific_bosses_list:
-                if f"Kill {boss}" in text:
-                    self.boss_names_for_log_watcher.add(boss)
+        # Timer for debouncing config saves
+        self.save_timer = QTimer()
+        self.save_timer.setSingleShot(True)
+        self.save_timer.setInterval(1000)  # Save after 1s of inactivity
+        self.save_timer.timeout.connect(self.save_config_to_disk)
 
-
-        self.init_ui()
-        self.setup_log_watcher()
-        self.scan_log_history()
-
-    def sync_current_completed_set(self):
-        step_idx = str(self.config["current_step"])
-        self.completed_substeps = set(self.completed_data.get(step_idx, []))
-
-    def save_completed_data(self):
-        step_idx = str(self.config["current_step"])
-        self.completed_data[step_idx] = list(self.completed_substeps)
-        self.config["completed_data"] = self.completed_data
+    @pyqtSlot()
+    def save_config_to_disk(self):
         save_config(self.config)
+        self.save_timer.stop() # Cancel any pending save
 
-    def init_ui(self):
-        # Window Flags
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint | 
-            Qt.WindowType.WindowStaysOnTopHint | 
-            Qt.WindowType.Tool
-        )
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.apply_click_through()
+    def request_save(self):
+        if not self.save_timer.isActive():
+            self.save_timer.start()
+        else:
+            self.save_timer.start() # Restart timer
+
+    @pyqtProperty(int, notify=currentStepIndexChanged)
+    def currentStepIndex(self):
+        return self.config.get("current_step", 0)
+
+    @currentStepIndex.setter
+    def currentStepIndex(self, value):
+        if self.config.get("current_step") != value:
+            self.config["current_step"] = value
+            self.currentStepIndexChanged.emit()
+            self.actTitleChanged.emit()
+            self.update_substeps()
+            self.request_save()
+
+    @pyqtProperty(int, notify=currentStepIndexChanged)
+    def totalSteps(self):
+        return len(WALKTHROUGH)
+
+    @pyqtProperty(str, notify=currentZoneChanged)
+    def currentZone(self):
+        return self._current_zone
+
+    @currentZone.setter
+    def currentZone(self, value):
+        if self._current_zone != value:
+            self._current_zone = value
+            self.currentZoneChanged.emit()
+
+    @pyqtProperty(str, notify=actTitleChanged)
+    def actTitle(self):
+        idx = self.currentStepIndex
+        if 0 <= idx < len(WALKTHROUGH):
+            step = WALKTHROUGH[idx]
+            text = step.get("text", "")
+            act_match = re.search(r"ACT (\d+)", text)
+            if act_match:
+                return f"◈ ACT {act_match.group(1)} · {step['zone']}"
+            return f"◈ {step['zone']}"
+        return "◈ UNKNOWN"
+
+    @pyqtProperty('QVariantList', notify=substepsChanged)
+    def substeps(self):
+        return self._substeps
+
+    def update_substeps(self):
+        idx = self.currentStepIndex
+        if 0 <= idx < len(WALKTHROUGH):
+            # Build HTML lines only once per step — cache result to avoid repeated regex
+            if idx not in self._html_cache:
+                step = WALKTHROUGH[idx]
+                text = step["text"]
+                zone_name = step["zone"]
+
+                # Remove ACT X header
+                text = re.sub(r"ACT \d+\n?", "", text)
+
+                # Process badges/tags with neon colors
+                replacements = {
+                    "[WP]": "<span style='color: #00ffff; font-weight: bold;'>[WP]</span>",
+                    "[Q]": "<span style='color: #ffcc00; font-weight: bold;'>[QUEST]</span>",
+                    "[SKILL_POINT]": "<span style='color: #00ff88; font-weight: bold;'>[SKILL]</span>",
+                    "[TRIAL": "<span style='color: #ff4466; font-weight: bold;'>[LAB TRIAL",
+                }
+                for k, v in replacements.items():
+                    text = text.replace(k, v)
+
+                # Action keywords
+                action_map = {
+                    "Kill": "#ff4466", "Defeat": "#ff4466", "Clear": "#ff4466", "Slay": "#ff4466",
+                    "Help": "#00ff88", "Talk": "#00ff88", "Quest": "#00ff88", "Reward": "#00ff88",
+                    "Go to": "#00ffff", "Enter": "#00ffff", "Travel": "#00ffff"
+                }
+                for action, color in action_map.items():
+                    text = re.sub(rf"\b{action}\b", f"<span style='color: {color}; font-weight: bold;'>{action}</span>", text)
+
+                # Highlight zone names and boss names in Cyan
+                boss_matches = re.findall(r"Kill ([A-Za-z][a-zA-Z' -]+?)(?:\.|,| for |\[SKILL\]|\n)", text)
+                for boss in boss_matches:
+                    text = text.replace(boss, f"<span style='color: #00ffff; font-weight: bold;'>{boss}</span>")
+
+                if zone_name in text:
+                    text = text.replace(zone_name, f"<span style='color: #00ffff; font-weight: bold;'>{zone_name}</span>")
+
+                self._html_cache[idx] = [line.strip() for line in text.split(".") if line.strip()]
+
+            # Rebuild substep list with current completion state (fast — no regex)
+            lines = self._html_cache[idx]
+            completed_indices = self.completed_data.get(str(idx), [])
+            self._substeps = [
+                {"text": line + ".", "isCompleted": i in completed_indices}
+                for i, line in enumerate(lines)
+            ]
+            self.substepsChanged.emit()
+
+    def mark_substep_completed(self, index, auto=False):
+        """
+        Mark a substep as completed.
+        auto=True means triggered by log watcher (zone entry, boss kill etc.)
+        auto=False means triggered by player clicking manually.
         
-        # Initial Geometry (will be adjusted dynamically)
-        self.setGeometry(
-            self.config["window_x"], 
-            self.config["window_y"], 
-            self.config.get("window_width", 400), # Default width
-            self.config.get("window_height", 200) # Default height
-        )
-        self.setMinimumWidth(300)
+        FIX #1: If auto=True and the step was already visited before
+        (player backtracked), do NOT auto-complete — leave it for the
+        player to check manually or use Reset (R).
+        """
+        idx = self.currentStepIndex
+        idx_str = str(idx)
 
-        # Animation for smooth resizing
-        self.size_animation = QPropertyAnimation(self, b"size")
-        self.size_animation.setDuration(150)  # milliseconds
-        self.size_animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+        # FIX #1 CORE LOGIC:
+        # If this is an auto-completion AND the step was previously completed
+        # (i.e. player is backtracking), skip the auto-completion entirely.
+        if auto and idx in self.auto_completed_steps:
+            return
 
-        # Layout
-        self.main_layout = QVBoxLayout()
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(self.main_layout)
-
-        # Content Widget (for background styling)
-        self.content_container = QWidget()
-        self.container_layout = QVBoxLayout()
-        self.container_layout.setSpacing(2)
-        self.container_layout.setContentsMargins(15, 15, 15, 15)
-        self.content_container.setLayout(self.container_layout)
-        self.main_layout.addWidget(self.content_container)
-
-        # Controls Row (Moved to Top)
-        self.controls_widget = QWidget()
-        self.controls_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self.controls_widget.setFixedHeight(30)
-        self.controls_layout = QHBoxLayout()
-        self.controls_layout.setContentsMargins(10, 0, 10, 0)
-        self.controls_layout.setSpacing(10)
-        self.controls_widget.setLayout(self.controls_layout)
+        if idx_str not in self.completed_data:
+            self.completed_data[idx_str] = []
         
-        self.move_label = QLabel("MOVE")
-        self.move_label.setToolTip("Ctrl + LMB to move")
-        self.move_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        for i in range(index + 1):
+            if i not in self.completed_data[idx_str]:
+                self.completed_data[idx_str].append(i)
         
-        self.btn_prev = QLabel("<")
-        self.btn_prev.setToolTip("Ctrl + LMB to go back")
-        self.btn_prev.setFixedWidth(20)
-        self.btn_prev.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Mark this step as having been auto-completed at least once
+        if auto:
+            self.auto_completed_steps.add(idx)
+
+        self.config["completed_data"] = self.completed_data
+        self.request_save()
         
-        self.btn_next = QLabel(">")
-        self.btn_next.setToolTip("Ctrl + LMB to go forward")
-        self.btn_next.setFixedWidth(20)
-        self.btn_next.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.btn_font_decrease = QLabel("-")
-        self.btn_font_decrease.setToolTip("Ctrl + LMB to decrease font size")
-        self.btn_font_decrease.setFixedWidth(20)
-        self.btn_font_decrease.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.label_font_f = QLabel("F")
-        self.label_font_f.setFixedWidth(20)
-        self.label_font_f.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.btn_font_increase = QLabel("+")
-        self.btn_font_increase.setToolTip("Ctrl + LMB to increase font size")
-        self.btn_font_increase.setFixedWidth(20)
-        self.btn_font_increase.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.close_btn = QLabel("X")
-        self.close_btn.setToolTip("Click to close")
-        self.close_btn.setFixedWidth(20)
-        self.close_btn.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.close_btn.setStyleSheet("color: #ff4d4d; font-weight: bold; font-size: 14px; padding: 2px;")
-        
-        self.controls_layout.addWidget(self.move_label)
-        self.controls_layout.addWidget(self.btn_prev)
-        self.controls_layout.addWidget(self.btn_next)
-        self.controls_layout.addSpacing(10)
-        self.controls_layout.addWidget(self.btn_font_decrease)
-        self.controls_layout.addWidget(self.label_font_f)
-        self.controls_layout.addWidget(self.btn_font_increase)
-        self.controls_layout.addStretch()
-        self.btn_reset = QLabel("R")
-        self.btn_reset.setToolTip("Ctrl + LMB to reset player progress")
-        self.btn_reset.setFixedWidth(20)
-        self.btn_reset.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.controls_layout.addWidget(self.btn_reset)
-        self.controls_layout.addWidget(self.close_btn)
-        
-        self.container_layout.addWidget(self.controls_widget)
-
-        # Top Row (Zone Display)
-        self.top_layout = QHBoxLayout()
-        self.top_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Zone Display
-        self.zone_display = QLabel("Location: Waiting...")
-        self.zone_display.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.zone_display.setStyleSheet("font-size: 10px; color: #888888;")
-        self.top_layout.addWidget(self.zone_display)
-        
-        self.container_layout.addLayout(self.top_layout)
-
-        # Target Info Row (New)
-        self.target_info_layout = QVBoxLayout()
-        self.target_info_layout.setSpacing(2)
-        
-        self.quest_label = QLabel("")
-        self.quest_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.quest_label.setStyleSheet("color: #FFD700; font-weight: bold; font-size: 13px; letter-spacing: 1px;")
-        
-        self.target_zone_label = QLabel("")
-        self.target_zone_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.target_zone_label.setStyleSheet("color: #888888; font-style: italic; font-size: 11px;")
-        
-        self.target_info_layout.addWidget(self.quest_label)
-        self.target_info_layout.addWidget(self.target_zone_label)
-        
-        # Separator line
-        self.line = QLabel()
-        self.line.setFixedHeight(1)
-        self.line.setStyleSheet("background-color: rgba(255, 215, 0, 40);")
-        self.target_info_layout.addWidget(self.line)
-        
-        self.container_layout.addLayout(self.target_info_layout)
-
-        # Step Text
-        self.step_label = QLabel()
-        self.step_label.setWordWrap(False)
-        self.step_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self.step_label.linkActivated.connect(self.on_task_clicked)
-        self.step_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
-        self.step_label.adjustSize()
-        
-        # Text Shadow
-        shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(6)
-        shadow.setXOffset(1)
-        shadow.setYOffset(1)
-        shadow.setColor(QColor(0, 0, 0, 255))
-        self.step_label.setGraphicsEffect(shadow)
-        
-        self.container_layout.addWidget(self.step_label)
-
-        # Progress Bar
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(5)
-        self.version_layout = QHBoxLayout()
-        self.version_label = QLabel(self.app_version)
-        self.version_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
-        self.version_label.setStyleSheet("font-size: 8px; color: #555555; margin-right: 5px; margin-bottom: 2px;")
-        self.version_layout.addStretch()
-        self.version_layout.addWidget(self.version_label)
-        self.container_layout.addLayout(self.version_layout)
-
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setFixedHeight(5)
-        self.progress_bar.setTextVisible(False)
-        self.progress_bar.setStyleSheet("""
-            QProgressBar { border: 1px solid rgba(255, 215, 0, 30); background-color: rgba(0,0,0,100); border-radius: 2px; }
-            QProgressBar::chunk { background-color: #FFD700; }
-        """)
-        self.container_layout.addWidget(self.progress_bar)
-
-
-        # Auto-hide controls
-        self.controls_widget.setGraphicsEffect(None) # Reset
-        self.controls_widget.setVisible(False)
-
-        self.apply_theme()
-        self.update_step_ui()
-
-    def on_task_clicked(self, link):
-        try:
-            task_idx = int(link)
-            if task_idx in self.completed_substeps:
-                self.completed_substeps.remove(task_idx)
+        if len(self.completed_data[idx_str]) >= len(self._substeps):
+            if self.currentStepIndex < len(WALKTHROUGH) - 1:
+                self.currentStepIndex += 1
             else:
-                self.completed_substeps.add(task_idx)
+                self.update_substeps()
+        else:
+            self.update_substeps()
+
+    @pyqtSlot(int)
+    def onSubstepClicked(self, index):
+        """Player manually clicks a substep — always toggle regardless of backtrack state."""
+        idx_str = str(self.currentStepIndex)
+        if idx_str not in self.completed_data:
+            self.completed_data[idx_str] = []
+        
+        if index in self.completed_data[idx_str]:
+            # Uncheck — also remove from auto_completed so log can re-trigger if needed
+            self.completed_data[idx_str].remove(index)
+            self.auto_completed_steps.discard(self.currentStepIndex)
+        else:
+            self.mark_substep_completed(index, auto=False)
+            return
+
+        self.config["completed_data"] = self.completed_data
+        self.request_save()
+        self.update_substeps()
+
+    @pyqtSlot()
+    def onPrevStep(self):
+        if self.currentStepIndex > 0:
+            self.currentStepIndex -= 1
+
+    @pyqtSlot()
+    def onNextStep(self):
+        if self.currentStepIndex < len(WALKTHROUGH) - 1:
+            self.currentStepIndex += 1
+
+    @pyqtSlot()
+    def increaseFontSize(self):
+        new_size = min(24, self.config.get("base_font_size", 12) + 2)
+        self.config["base_font_size"] = new_size
+        self.request_save()
+        self.baseFontSizeChanged.emit()
+
+    @pyqtSlot()
+    def decreaseFontSize(self):
+        new_size = max(7, self.config.get("base_font_size", 12) - 2)
+        self.config["base_font_size"] = new_size
+        self.request_save()
+        self.baseFontSizeChanged.emit()
+
+    @pyqtProperty(int, notify=windowPosChanged)
+    def windowX(self): return self.config.get("window_x", 100)
+    @pyqtProperty(int, notify=windowPosChanged)
+    def windowY(self): return self.config.get("window_y", 100)
+    @pyqtProperty(int, notify=windowSizeChanged)
+    def windowWidth(self): return self.config.get("window_width", 400)
+    @pyqtProperty(int, notify=windowSizeChanged)
+    def windowHeight(self): return self.config.get("window_height", 250)
+
+    @pyqtSlot(int, int)
+    def updateWindowPos(self, x, y):
+        self.config["window_x"] = x
+        self.config["window_y"] = y
+        self.request_save()
+        self.windowPosChanged.emit()
+
+    @pyqtSlot(int, int)
+    def updateWindowSize(self, w, h):
+        self.config["window_width"] = w
+        self.config["window_height"] = h
+        self.request_save()
+        self.windowSizeChanged.emit()
+
+    @pyqtProperty(float, notify=opacityChanged)
+    def opacity(self): return self.config.get("opacity", 0.85)
+
+    @pyqtSlot(float)
+    def adjustOpacity(self, delta):
+        new_op = max(0.2, min(1.0, self.opacity + delta))
+        self.config["opacity"] = new_op
+        self.request_save()
+        self.opacityChanged.emit()
+
+    @pyqtProperty(int, notify=baseFontSizeChanged)
+    def baseFontSize(self): return self.config.get("base_font_size", 12)
+
+    @pyqtProperty(bool, notify=clickThroughChanged)
+    def clickThrough(self): return self.config.get("click_through", False)
+
+    @pyqtSlot()
+    def toggleClickThrough(self):
+        self.config["click_through"] = not self.config.get("click_through", False)
+        self.request_save()
+        self.clickThroughChanged.emit()
+
+    @pyqtSlot()
+    def resetProgress(self):
+        """Full reset — clears all completed data and backtrack tracking."""
+        self.config["current_step"] = 0
+        self.completed_data = {}
+        self.config["completed_data"] = {}
+        self.auto_completed_steps = set()  # FIX #1: also reset backtrack tracking
+        self.request_save()
+        self.currentStepIndexChanged.emit()
+        self.actTitleChanged.emit()
+        self.update_substeps()
+
+
+class PoEApp:
+    def __init__(self):
+        self.app = QApplication(sys.argv)
+        self.config = load_config()
+        self.bridge = OverlayBridge(self.config)
+        
+        self.engine = QQmlApplicationEngine()
+        self.engine.rootContext().setContextProperty("bridge", self.bridge)
+        
+        qml_file = os.path.join(os.path.dirname(__file__), "overlay.qml")
+        self.engine.load(QUrl.fromLocalFile(qml_file))
+        
+        if not self.engine.rootObjects():
+            sys.exit(-1)
+
+        root = self.engine.rootObjects()[0]
+        root.setProperty("width", self.config.get("window_width", 400))
+        root.setProperty("height", self.config.get("window_height", 250))
+        root.setProperty("x", self.config.get("window_x", 100))
+        root.setProperty("y", self.config.get("window_y", 100))
+        root.requestActivate()
+        root.raise_()
+
+        self.setup_log_watcher()
+        # Defer log scan to after the event loop starts — avoids blocking UI during init
+        QTimer.singleShot(0, self.scan_log_history)
+
+    def setup_log_watcher(self):
+        path = self.config.get("client_txt_path")
+        if path and os.path.exists(path):
+            boss_names = set()
+            for step in WALKTHROUGH:
+                text = step.get("text", "")
+                boss_matches = re.findall(r"Kill ([A-Za-z][a-zA-Z' -]+?)(?:\.|,| for |\[SKILL\]|\n)", text)
+                for boss in boss_matches:
+                    if boss.strip().lower() not in ["hillock", "crab", "spider", "guards", "general", "overseer", "puppet mistress"] and len(boss.strip()) > 2:
+                        boss_names.add(boss.strip())
             
-            self.save_completed_data()
-            self.update_step_ui()
-            self.check_auto_advance()
-        except ValueError:
-            pass
+            self.watcher = LogWatcher(path, list(boss_names))
+            self.watcher.zone_changed.connect(self.on_zone_changed)
+            self.watcher.waypoint_discovered.connect(self.on_waypoint_discovered)
+            self.watcher.quest_item_found.connect(self.on_quest_item_found)
+            self.watcher.quest_completed.connect(self.on_quest_completed)
+            self.watcher.boss_slain.connect(self.on_boss_slain)
+            self.watcher.trial_completed.connect(self.on_trial_completed)
+            self.watcher.start()
 
     def scan_log_history(self):
         path = self.config.get("client_txt_path")
-        if not path or not os.path.exists(path):
-            return
-
+        if not path or not os.path.exists(path): return
         try:
-            # Read last 50KB of log to catch recent context
             file_size = os.path.getsize(path)
             read_size = min(file_size, 50000)
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 f.seek(file_size - read_size)
                 lines = f.readlines()
-                
                 found_zone = None
-                found_wps = False
-                
                 for line in lines:
-                    # Zone check
                     zone_match = re.search(r" : You have entered (.*?)\.", line)
-                    if zone_match:
-                        found_zone = zone_match.group(1).strip()
-                    
-                    # WP check
-                    if " : You have discovered a waypoint" in line:
-                        found_wps = True
-                
+                    if zone_match: found_zone = zone_match.group(1).strip()
                 if found_zone:
-                    # Silently update zone logic
-                    self.current_zone = found_zone
-                    self.zone_display.setText(f"Location: {found_zone}")
-                    for i, step in enumerate(WALKTHROUGH):
-                        if step["zone"].lower() == found_zone.lower():
-                            if self.config["current_step"] != i:
-                                self.config["current_step"] = i
-                                self.sync_current_completed_set()
-                            break
-                
-                if found_wps:
-                    self.on_waypoint_discovered()
-                    
-            self.update_step_ui()
-        except Exception as e:
-            print(f"Error scanning log history: {e}")
+                    self.on_zone_changed(found_zone)
+        except: pass
 
-    def apply_click_through(self):
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, self.config.get("click_through", False))
-
-    def apply_theme(self):
-        # Exile Dark Theme Colors
-        alpha = int(self.config.get("opacity", 0.85) * 255)
-        bg_color = f"rgba(25, 25, 25, {alpha})" # Slightly darker
-        text_color = "#f8f8f2" # Cleaner white-ish
-        accent_color = "#FFD700" # Gold
-
-        self.content_container.setStyleSheet(f"""
-            QWidget {{
-                background-color: {bg_color};
-                border: 2px solid {accent_color};
-                border-radius: 8px;
-            }}
-            QLabel {{
-                color: {text_color};
-                background: transparent;
-                border: none;
-            }}
-        """)
-        
-        # Highlight interactive labels
-        control_style = f"color: {accent_color}; font-weight: bold; font-size: 13px;"
-        hover_style = f"background-color: rgba(255, 215, 0, 30); border-radius: 3px;"
-
-        self.move_label.setStyleSheet(f"QLabel {{ {control_style} }} QLabel:hover {{ {hover_style} }}")
-        self.btn_prev.setStyleSheet(f"QLabel {{ color: {accent_color}; font-weight: bold; font-size: 18px; padding: 0 5px; }} QLabel:hover {{ {hover_style} }}")
-        self.btn_next.setStyleSheet(f"QLabel {{ color: {accent_color}; font-weight: bold; font-size: 18px; padding: 0 5px; }} QLabel:hover {{ {hover_style} }}")
-        self.btn_font_decrease.setStyleSheet(f"QLabel {{ {control_style} }} QLabel:hover {{ {hover_style} }}")
-        self.label_font_f.setStyleSheet(f"QLabel {{ {control_style} }}")
-        self.btn_font_increase.setStyleSheet(f"QLabel {{ {control_style} }} QLabel:hover {{ {hover_style} }}")
-        self.btn_reset.setStyleSheet(f"QLabel {{ color: #4da6ff; font-weight: bold; font-size: 14px; padding: 2px; }} QLabel:hover {{ background-color: rgba(77, 166, 255, 50); border-radius: 3px; }}")
-        self.close_btn.setStyleSheet(f"QLabel {{ color: #ff4d4d; font-weight: bold; font-size: 14px; padding: 2px; }} QLabel:hover {{ background-color: rgba(255, 77, 77, 50); border-radius: 3px; }}")
-
-
-    def update_step_ui(self):
-        idx = self.config["current_step"]
-        if 0 <= idx < len(WALKTHROUGH):
-            step = WALKTHROUGH[idx]
-            text = step["text"]
-            
-            # Update Quest and Target Zone labels
-            self.quest_label.setText(step.get("quest", "Main Quest").upper())
-            self.target_zone_label.setText(f"OBJECTIVE: {step['zone']}")
-            
-            # Styling constants
-            wp_style = "background-color: #2b5b84; color: #4da6ff; border-radius: 3px; padding: 1px 3px; font-weight: bold;"
-            q_style = "background-color: #5b5b00; color: #ffff00; border-radius: 3px; padding: 1px 3px; font-weight: bold;"
-            skill_style = "background-color: #1e4620; color: #33ff33; border-radius: 3px; padding: 1px 3px; font-weight: bold;"
-            
-            # Keyword Highlighting with Badges
-            text = text.replace("[WP]", f"<span style=\'{wp_style}\'>WP</span>")
-            text = text.replace("[Q]", f"<span style=\'{q_style}\'>Q</span>")
-            text = text.replace("[SKILL]", f"<span style=\'{skill_style}\'>SKILL</span>")
-            text = text.replace("ACT ", "<b><span style=\'color: #FFD700;\'>ACT </span></b>")
-
-            # Action Color Palette
-            actions_red = ["Kill", "Defeat", "Clear", "Slay"]
-            actions_green = ["Help", "Talk", "Quest", "Reward"]
-            actions_blue = ["Go to", "Enter", "Travel"]
-            
-            # Bandit Check
-            if any(bandit in text for bandit in ["Bandits", "Kraityn", "Alira", "Oak"]):
-                text += "<br><br><b style=\'color: #ff4d4d;\'>➜ KILL ALL or CHECK YOUR POB</b>"
-
-            for action in actions_red:
-                text = re.sub(rf"\b{action}\b", f"<span style=\'color: #ff4d4d; font-weight: bold;\'>{action}</span>", text)
-            for action in actions_green:
-                text = re.sub(rf"\b{action}\b", f"<span style=\'color: #50fa7b; font-weight: bold;\'>{action}</span>", text)
-            for action in actions_blue:
-                text = re.sub(rf"\b{action}\b", f"<span style=\'color: #4da6ff; font-weight: bold;\'>{action}</span>", text)
-
-            # Bullet points and Line Height
-            lines = [line.strip() for line in text.split(".") if line.strip()]
-            if len(lines) > 1:
-                formatted_text = "<ul style=\'margin-left: -20px; line-height: 130%;\'>"
-                for i, line in enumerate(lines):
-                    style = "color: #f8f8f2;" # Default color
-                    if i in self.completed_substeps:
-                        style = "text-decoration: line-through; color: #555555;"
-                    formatted_text += f"<li style=\'margin-bottom: 4px;\'><a href=\'{i}\' style=\'text-decoration: none; {style}\'>{line}</a></li>"
-                formatted_text += "</ul>"
-            else:
-                style = "color: #f8f8f2;"
-                if 0 in self.completed_substeps:
-                    style = "text-decoration: line-through; color: #555555;"
-                formatted_text = f"<div style=\'line-height: 130%;\'><a href=\'0\' style=\'text-decoration: none; {style}\'>{text}</a></div>"
-            
-            # Town status check
-            if hasattr(self, 'current_zone') and self.current_zone in TOWNS:
-                formatted_text += "<br><div style=\'font-size: 11px; color: #FFD700; border-top: 1px solid rgba(255,215,0,30); padding-top: 4px;\'>➜ IN TOWN: Get Quests</div>"
-
-            self.step_label.setText(f"<html><body>{formatted_text}</body></html>")
-            
-            # Progress Bar
-            self.progress_bar.setMaximum(len(WALKTHROUGH) - 1)
-            self.progress_bar.setValue(idx)
-        self.adjust_window_size()
-        
-        self.scale_font()
-
-    def scale_font(self):
-        base_font_size = self.config.get("base_font_size", 12)
-
-        font = QFont()
-        font.setPointSize(base_font_size)
-        self.step_label.setFont(font)
-
-        quest_font = QFont()
-        quest_font.setPointSize(max(8, base_font_size + 1))
-        self.quest_label.setFont(quest_font)
-
-        target_zone_font = QFont()
-        target_zone_font.setPointSize(max(8, base_font_size - 1))
-        self.target_zone_label.setFont(target_zone_font)
-
-        control_font = QFont()
-        control_font.setPointSize(max(8, base_font_size + 1))
-        self.move_label.setFont(control_font)
-        self.btn_prev.setFont(control_font)
-        self.btn_next.setFont(control_font)
-        self.btn_font_decrease.setFont(control_font)
-        self.label_font_f.setFont(control_font)
-        self.btn_font_increase.setFont(control_font)
-
-        reset_font = QFont()
-        reset_font.setPointSize(max(8, base_font_size + 2))
-        self.btn_reset.setFont(reset_font)
-
-        close_font = QFont()
-        close_font.setPointSize(max(8, base_font_size + 2))
-        self.close_btn.setFont(close_font)
-
-        zone_display_font = QFont()
-        zone_display_font.setPointSize(max(6, base_font_size - 2))
-        self.zone_display.setFont(zone_display_font)
-
-
-    def setup_log_watcher(self):
-        path = self.config["client_txt_path"]
-        if not path or not os.path.exists(path):
-            # Try common paths
-            home = os.path.expanduser("~")
-            common_paths = [
-                "/mnt/a24ff19e-fc7e-47ad-a274-4c1eb1999c3a/SteamLibrary/steamapps/common/Path of Exile/logs/Client.txt",
-                f"{home}/.local/share/Steam/steamapps/compatdata/238960/pfx/drive_c/Program Files (x86)/Grinding Gear Games/Path of Exile/logs/Client.txt",
-                f"{home}/.steam/steam/steamapps/compatdata/238960/pfx/drive_c/Program Files (x86)/Grinding Gear Games/Path of Exile/logs/Client.txt"
-            ]
-            for p in common_paths:
-                if os.path.exists(p):
-                    path = p
-                    self.config["client_txt_path"] = path
-                    save_config(self.config)
-                    break
-        
-        if not path or not os.path.exists(path):
-            # We will prompt later or just wait for manual selection
-            pass
-        else:
-            self.watcher = LogWatcher(path, list(self.boss_names_for_log_watcher)) # Pass boss names
-            self.watcher.zone_changed.connect(self.on_zone_changed)
-            self.watcher.waypoint_discovered.connect(self.on_waypoint_discovered)
-            self.watcher.quest_item_found.connect(self.on_quest_item_found) # New connection
-            self.watcher.quest_completed.connect(self.on_quest_completed)     # New connection
-            self.watcher.boss_slain.connect(self.on_boss_slain)               # New connection
-            self.watcher.trial_completed.connect(self.on_trial_completed)     # New connection
-            self.watcher.start()
-
-    def on_waypoint_discovered(self):
-        # Mark WP tasks as done
-        idx = self.config["current_step"]
-        if 0 <= idx < len(WALKTHROUGH):
-            step = WALKTHROUGH[idx]
-            text = step["text"]
-            lines = [line.strip() for line in text.split(".") if line.strip()]
-            for i, line in enumerate(lines):
-                if "[WP]" in line or "waypoint" in line.lower():
-                    self.completed_substeps.add(i)
-            
-            self.save_completed_data() # Save after marking completion
-            self.update_step_ui()
-            self.check_auto_advance()
-
-    def on_quest_item_found(self, item_name):
-        idx = self.config["current_step"]
-        if 0 <= idx < len(WALKTHROUGH):
-            step = WALKTHROUGH[idx]
-            text = step["text"]
-            lines = [line.strip() for line in text.split(".") if line.strip()]
-            for i, line in enumerate(lines):
-                if item_name.lower() in line.lower() and "[Q]" in line:
-                    self.completed_substeps.add(i)
-            
-            self.save_completed_data()
-            self.update_step_ui()
-            self.check_auto_advance()
-
-    def on_quest_completed(self, quest_name):
-        idx = self.config["current_step"]
-        if 0 <= idx < len(WALKTHROUGH):
-            step = WALKTHROUGH[idx]
-            text = step["text"]
-            lines = [line.strip() for line in text.split(".") if line.strip()]
-            for i, line in enumerate(lines):
-                # Match quest name from log to quest in walkthrough text or quest field
-                if quest_name.lower() in line.lower() or (step.get("quest", "").lower() == quest_name.lower()):
-                    self.completed_substeps.add(i)
-            
-            self.save_completed_data()
-            self.update_step_ui()
-            self.check_auto_advance()
-
-    def on_boss_slain(self, boss_name):
-        idx = self.config["current_step"]
-        if 0 <= idx < len(WALKTHROUGH):
-            step = WALKTHROUGH[idx]
-            text = step["text"]
-            lines = [line.strip() for line in text.split(".") if line.strip()]
-            for i, line in enumerate(lines):
-                if boss_name.lower() in line.lower():
-                    self.completed_substeps.add(i)
-            
-            self.save_completed_data()
-            self.update_step_ui()
-            self.check_auto_advance()
-
-    def on_trial_completed(self, trial_name):
-        idx = self.config["current_step"]
-        if 0 <= idx < len(WALKTHROUGH):
-            step = WALKTHROUGH[idx]
-            text = step["text"]
-            lines = [line.strip() for line in text.split(".") if line.strip()]
-            for i, line in enumerate(lines):
-                if trial_name.lower() in line.lower() and "[TRIAL" in line.upper():
-                    self.completed_substeps.add(i)
-            
-            self.save_completed_data()
-            self.update_step_ui()
-            self.check_auto_advance()
-
-    def check_auto_advance(self):
-        idx = self.config["current_step"]
-        if 0 <= idx < len(WALKTHROUGH):
-            step = WALKTHROUGH[idx]
-            text = step["text"]
-            total_lines = len([line.strip() for line in text.split(".") if line.strip()])
-            if len(self.completed_substeps) >= total_lines and total_lines > 0:
-                if idx < len(WALKTHROUGH) - 1:
-                    self.config["current_step"] += 1
-                    self.completed_substeps = set() # Reset for next step
-                    self.update_step_ui()
-                    save_config(self.config)
-                    self.adjust_window_size()
+    def select_client_txt(self):
+        f, _ = QFileDialog.getOpenFileName(None, "Select Path of Exile Client.txt", os.path.expanduser("~"), "Text Files (*.txt);;All Files (*)")
+        if f:
+            self.config["client_txt_path"] = f
+            save_config(self.config)
 
     def on_zone_changed(self, zone_name):
-        self.current_zone = zone_name
-        self.zone_display.setText(f"Location: {zone_name}")
-        
-        # Check if this zone completion marks a substep as done
-        idx = self.config["current_step"]
+        self.bridge.currentZone = zone_name
+        idx = self.bridge.currentStepIndex
         if 0 <= idx < len(WALKTHROUGH):
-            step = WALKTHROUGH[idx]
-            text = step["text"]
+            text = WALKTHROUGH[idx]["text"]
             lines = [line.strip() for line in text.split(".") if line.strip()]
             for i, line in enumerate(lines):
                 if zone_name.lower() in line.lower() or ("town" in line.lower() and zone_name in TOWNS):
-                    self.completed_substeps.add(i)
+                    # FIX #1: pass auto=True so backtrack guard kicks in
+                    self.bridge.mark_substep_completed(i, auto=True)
+                    break
         
-        self.update_step_ui()
-        self.check_auto_advance()
-        
-        # Town Logic: If it's a town, don't change anything but update UI status
-        if zone_name in TOWNS:
-            return
-
-        # Find the step for this zone (original auto-sync logic)
+        if zone_name in TOWNS: return
         for i, step in enumerate(WALKTHROUGH):
             if step["zone"].lower() == zone_name.lower():
-                if self.config["current_step"] != i:
-                    self.config["current_step"] = i
-                    self.completed_substeps = set() # Reset on major zone change
-                    self.update_step_ui()
-                    save_config(self.config)
-                    self.adjust_window_size()
+                if self.bridge.currentStepIndex != i:
+                    self.bridge.currentStepIndex = i
                 break
 
-    def enterEvent(self, event):
-        # Show controls on hover
-        self.controls_widget.setVisible(True)
-        self.close_btn.setVisible(True)
-        super().enterEvent(event)
+    def on_waypoint_discovered(self):
+        self._check_and_complete("[WP]")
+        self._check_and_complete("waypoint")
 
-    def leaveEvent(self, event):
-        # Hide controls when not hovering
-        self.controls_widget.setVisible(False)
-        self.close_btn.setVisible(False)
-        super().leaveEvent(event)
-        self.adjust_window_size()
+    def on_quest_item_found(self, item_name):
+        self._check_and_complete(item_name)
 
-    def wheelEvent(self, event: QWheelEvent):
-        # Change opacity with Ctrl + Scroll
-        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-            delta = event.angleDelta().y()
-            current_op = self.config.get("opacity", 0.85)
-            if delta > 0:
-                current_op = min(1.0, current_op + 0.05)
-            else:
-                current_op = max(0.2, current_op - 0.05)
-            
-            self.config["opacity"] = current_op
-            self.apply_theme()
-            save_config(self.config)
-        super().wheelEvent(event)
+    def on_quest_completed(self, quest_name):
+        self._check_and_complete(quest_name)
 
-    def mousePressEvent(self, event):
-        # Always allow closing with X even without Ctrl
-        if event.button() == Qt.MouseButton.LeftButton:
-            if self.close_btn.underMouse():
-                self.close()
-                return
+    def on_boss_slain(self, boss_name):
+        self._check_and_complete(boss_name)
 
-        # Support for navigation and interactions (Require Ctrl)
-        if event.button() == Qt.MouseButton.LeftButton and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-            pos = event.position().toPoint()
-            
-            # Check for Navigation
-            if self.btn_prev.underMouse():
-                if self.config["current_step"] > 0:
-                    self.config["current_step"] -= 1
-                    self.update_step_ui()
-                    save_config(self.config)
-                    self.adjust_window_size()
-            
-            elif self.btn_next.underMouse():
-                if self.config["current_step"] < len(WALKTHROUGH) - 1:
-                    self.config["current_step"] += 1
-                    self.update_step_ui()
-                    save_config(self.config)
-                    self.adjust_window_size()
+    def on_trial_completed(self, trial_name):
+        self._check_and_complete(trial_name)
+        self._check_and_complete("TRIAL")
 
-            # Check for Move label
-            elif self.move_label.underMouse():
-                self.is_moving = True
-                self.drag_start_pos = event.globalPosition().toPoint()
-                self.window_start_rect = self.geometry()
-            
-            elif self.btn_reset.underMouse():
-                self.reset_player_progress()
+    def _check_and_complete(self, keyword):
+        idx = self.bridge.currentStepIndex
+        if 0 <= idx < len(WALKTHROUGH):
+            text = WALKTHROUGH[idx]["text"]
+            lines = [line.strip() for line in text.split(".") if line.strip()]
+            for i, line in enumerate(lines):
+                if keyword.lower() in line.lower():
+                    # FIX #1: pass auto=True
+                    self.bridge.mark_substep_completed(i, auto=True)
+                    break
 
-            elif self.btn_font_decrease.underMouse():
-                current_font_size = self.config.get("base_font_size", 12)
-                new_font_size = max(8, current_font_size - 2)
-                if new_font_size != current_font_size:
-                    self.config["base_font_size"] = new_font_size
-                    save_config(self.config)
-                    self.scale_font()
-                    self.adjust_window_size()
-
-            elif self.btn_font_increase.underMouse():
-                current_font_size = self.config.get("base_font_size", 12)
-                new_font_size = min(30, current_font_size + 2)
-                if new_font_size != current_font_size:
-                    self.config["base_font_size"] = new_font_size
-                    save_config(self.config)
-                    self.scale_font()
-                    self.adjust_window_size()
-
-
-    def keyPressEvent(self, event: QKeyEvent):
-        ctrl = event.modifiers() == Qt.KeyboardModifier.ControlModifier
-        
-        # Exit (Ctrl + Q)
-        if ctrl and event.key() == Qt.Key.Key_Q:
-            self.close()
-        
-        # Click-through toggle (Ctrl + T)
-        elif ctrl and event.key() == Qt.Key.Key_T:
-            self.config["click_through"] = not self.config.get("click_through", False)
-            self.apply_click_through()
-            save_config(self.config)
-            
-        # Compact mode toggle (Ctrl + M)
-        elif ctrl and event.key() == Qt.Key.Key_M:
-            self.config["compact_mode"] = not self.config.get("compact_mode", False)
-            self.step_label.setVisible(not self.config["compact_mode"])
-            self.progress_bar.setVisible(not self.config["compact_mode"])
-            self.quest_label.setVisible(not self.config["compact_mode"])
-            self.target_zone_label.setVisible(not self.config["compact_mode"])
-            save_config(self.config)
-            self.adjust_window_size()
-
-        # Navigation shortcuts (Ctrl + Left/Right)
-        elif ctrl and event.key() == Qt.Key.Key_Left:
-            if self.config["current_step"] > 0:
-                self.config["current_step"] -= 1
-                self.update_step_ui()
-                save_config(self.config)
-        elif ctrl and event.key() == Qt.Key.Key_Right:
-            if self.config["current_step"] < len(WALKTHROUGH) - 1:
-                self.config["current_step"] += 1
-                self.update_step_ui()
-                save_config(self.config)
-
-    def mouseMoveEvent(self, event):
-        if self.is_moving:
-            delta = event.globalPosition().toPoint() - self.drag_start_pos
-            self.move(self.window_start_rect.topLeft() + delta)
-
-    def mouseReleaseEvent(self, event):
-        if self.is_moving:
-            self.is_moving = False
-            # Save new geometry
-            self.config["window_x"] = self.x()
-            self.config["window_y"] = self.y()
-            self.config["window_width"] = self.width() # Save width
-            self.config["window_height"] = self.height() # Save height
-            save_config(self.config)
-            
-    def adjust_window_size(self):
-        # Ensure all labels have updated content before calculating sizes
-        self.quest_label.adjustSize()
-        self.target_zone_label.adjustSize()
-        self.zone_display.adjustSize()
-        self.step_label.adjustSize() # Ensure it's adjusted to its content, considering word wrap and current width.
-        self.version_label.adjustSize()
-
-        # Calculate content widths to determine ideal_width
-        # The controls_widget should dictate a minimum width for the window contents.
-        min_content_width = self.controls_widget.sizeHint().width()
-        
-        # Calculate margins/padding that contribute to overall window size
-        horizontal_margins = self.container_layout.contentsMargins().left() + self.container_layout.contentsMargins().right() + \
-                             self.main_layout.contentsMargins().left() + self.main_layout.contentsMargins().right()
-        vertical_margins = self.container_layout.contentsMargins().top() + self.container_layout.contentsMargins().bottom() + \
-                           self.main_layout.contentsMargins().top() + self.main_layout.contentsMargins().bottom() + \
-                           self.container_layout.spacing() * 4 # Adjust for spacing between elements
-
-        # Calculate ideal width: Start with minimum width, then allow to expand based on content
-        step_label_effective_width = self.step_label.minimumSizeHint().width()
-
-        # Take the maximum preferred width from all top-level widgets that influence horizontal space
-        # and add horizontal margins/padding.
-        ideal_width = max(min_content_width, step_label_effective_width, self.quest_label.sizeHint().width(),
-                          self.target_zone_label.sizeHint().width(), self.zone_display.sizeHint().width()) + horizontal_margins + 30 # Extra padding
-        
-        # Ensure ideal_width respects the overall window's minimum width
-        ideal_width = max(self.minimumWidth(), ideal_width)
-
-        # Now calculate the ideal height. For step_label, its height will depend on the width it's given.
-        # Temporarily set the calculated ideal_width (minus margins) to the step_label to get its correct height.
-        
-        # Now calculate the ideal height. For step_label, its height will depend on the width it\"s given.
-        # Temporarily set the calculated ideal_width (minus internal margins) to the step_label to get its correct height.
-
-        content_height = self.controls_widget.height() + \
-                         self.zone_display.height() + \
-                         self.quest_label.height() + \
-                         self.target_zone_label.height() + \
-                         self.line.height() + \
-                         self.progress_bar.height() + \
-                         self.version_label.height() + \
-                         self.step_label.height() + \
-                         vertical_margins + 20 # Extra padding
-        
-        # Ensure the total height is at least a reasonable minimum, e.g., for controls only
-        content_height = max(self.controls_widget.height() + vertical_margins, content_height)
-
-        new_size = QSize(ideal_width, content_height)
-        
-        # Animate resize if size actually changes
-        if self.size() != new_size:
-            self.size_animation.setStartValue(self.size())
-            self.size_animation.setEndValue(new_size)
-            self.size_animation.start()
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-
-    def closeEvent(self, event):
-        # Stop log watcher thread before exiting
-        # Ensure all data is saved before closing
-        self.save_completed_data()
-        save_config(self.config)
-
-        if hasattr(self, 'watcher'):
-            print("Main: Requesting LogWatcher interruption...")
-            self.watcher.requestInterruption()
-            self.watcher.wait()
-            print("Main: LogWatcher thread finished.")
-        event.accept()
-        print("Main: closeEvent accepted.")
-        QApplication.instance().quit() # Explicitly quit the application
-
-    def reset_player_progress(self):
-        self.config["current_step"] = 0
-        self.completed_data = {}
-        self.sync_current_completed_set()
-        save_config(self.config)
-        self.update_step_ui()
-        self.scan_log_history() # Re-scan to potentially activate first hint/zone
-
-    def select_client_txt(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Select Path of Exile Client.txt", 
-            os.path.expanduser("~"), "Text Files (*.txt);;All Files (*)"
-        )
-        if file_path:
-            self.config["client_txt_path"] = file_path
-            save_config(self.config)
-            # Restart watcher
-            if hasattr(self, 'watcher'):
-                self.watcher.requestInterruption()
-                self.watcher.wait()
-            self.setup_log_watcher()
+    def run(self):
+        return self.app.exec()
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    overlay = PoEOverlay()
-    
-    # Check if we need to select Client.txt
-    if not overlay.config["client_txt_path"] or not os.path.exists(overlay.config["client_txt_path"]):
-        overlay.show() # Show it first so dialog has parent
-        overlay.select_client_txt()
-    else:
-        overlay.show()
-        
-    sys.exit(app.exec())
+    poe_app = PoEApp()
+    sys.exit(poe_app.run())

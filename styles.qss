@@ -1,0 +1,142 @@
+/* Base QLabel style */
+QLabel {
+    color: #F8F8F2;
+    background: transparent;
+    border: none;
+}
+
+/* Container Widget (main background) */
+#contentContainer {
+    background-color: rgba(25, 25, 25, %ALPHA%);
+    border: 2px solid #FFD700;
+    border-radius: 8px;
+}
+
+/* Control Labels (MOVE, <, >, etc.) */
+QLabel.control-label {
+    color: #FFD700;
+    font-weight: bold;
+}
+
+QLabel.control-label:hover {
+    background-color: rgba(255, 215, 0, 30);
+    border-radius: 3px;
+}
+
+/* Special control buttons */
+QLabel#btnPrev, QLabel#btnNext {
+    color: #FFD700;
+    font-weight: bold;
+    padding: 0 5px;
+}
+QLabel#btnPrev:hover, QLabel#btnNext:hover {
+    background-color: rgba(255, 215, 0, 30);
+    border-radius: 3px;
+}
+
+QLabel#btnReset {
+    color: #4da6ff;
+    font-weight: bold;
+    padding: 2px;
+}
+QLabel#btnReset:hover {
+    background-color: rgba(77, 166, 255, 50);
+    border-radius: 3px;
+}
+
+QLabel#closeBtn {
+    color: #FF4D4D;
+    font-weight: bold;
+    padding: 2px;
+}
+QLabel#closeBtn:hover {
+    background-color: rgba(255, 77, 77, 50);
+    border-radius: 3px;
+}
+
+/* Zone Display */
+QLabel#zoneDisplay {
+    color: #888888;
+}
+
+/* Quest Label */
+QLabel#questLabel {
+    color: #FFD700;
+    font-weight: bold;
+}
+
+/* Target Zone Label */
+QLabel#targetZoneLabel {
+    color: #888888;
+    font-style: italic;
+}
+
+/* Separator Line */
+QLabel#lineSeparator {
+    background-color: rgba(255, 215, 0, 40);
+}
+
+/* Progress Bar */
+QProgressBar {
+    border: 1px solid rgba(255, 215, 0, 30);
+    background-color: rgba(0,0,0,100);
+    border-radius: 2px;
+}
+
+QProgressBar::chunk {
+    background-color: #FFD700;
+}
+
+/* HTML injected styles for badges and text highlighting */
+/* Note: QSS applied to QLabel affects the whole label. 
+   For rich text, we rely on inline styles or classes if supported.
+   PyQt's QLabel rich text support for CSS classes is limited but usually works for simple things.
+*/
+
+.wp-badge {
+    background-color: rgba(43, 91, 132, 128);
+    color: #4DA6FF;
+}
+
+.q-badge {
+    background-color: rgba(91, 91, 0, 128);
+    color: #FFFF00;
+}
+
+.skill-badge {
+    background-color: rgba(30, 70, 32, 128);
+    color: #50FA7B;
+}
+
+.act-number {
+    color: #FFD700;
+}
+
+.action-kill, .action-defeat, .action-clear, .action-slay {
+    color: #FF4D4D;
+}
+
+.action-help, .action-talk, .action-quest, .action-reward {
+    color: #50FA7B;
+}
+
+.action-go-to, .action-enter, .action-travel {
+    color: #4DA6FF;
+}
+
+.bandit-warning {
+    color: #FF4D4D;
+}
+
+.in-town-message {
+    color: #FFFF00;
+}
+
+.completed-substep {
+    text-decoration: line-through;
+    color: #555555;
+}
+
+.active-substep {
+    color: #F8F8F2;
+}

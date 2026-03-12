@@ -22,6 +22,22 @@ class LogWatcher(QThread):
             print(f"LogWatcher: File path error: {self.file_path}")
             return
 
+        # Detect encoding
+        encoding = 'utf-8'
+        try:
+            with open(self.file_path, 'rb') as f:
+                chunk = f.read(1024)
+                if b'\xff\xfe' in chunk or b'\xfe\xff' in chunk:
+                    encoding = 'utf-16'
+                    print("LogWatcher: Detected UTF-16 with BOM.")
+                elif b'\x00' in chunk:
+                    encoding = 'utf-16-le' # Common for PoE on Proton
+                    print("LogWatcher: Detected UTF-16-LE (no BOM).")
+                else:
+                    print("LogWatcher: Detected UTF-8 encoding.")
+        except Exception as e:
+            print(f"LogWatcher: Encoding detection error: {e}")
+
         # Start at the end of the file
         file_size = os.path.getsize(self.file_path)
         last_position = file_size
@@ -34,7 +50,7 @@ class LogWatcher(QThread):
             
             if current_size > last_position:
                 try:
-                    with open(self.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    with open(self.file_path, 'r', encoding=encoding, errors='ignore') as f:
                         f.seek(last_position)
                         lines = f.readlines()
                         last_position = f.tell()
