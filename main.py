@@ -17,7 +17,6 @@ class OverlayBridge(QObject):
     windowSizeChanged = pyqtSignal()
     opacityChanged = pyqtSignal()
     baseFontSizeChanged = pyqtSignal()
-    clickThroughChanged = pyqtSignal()
     currentZoneChanged = pyqtSignal()
 
     def __init__(self, config):
@@ -29,6 +28,7 @@ class OverlayBridge(QObject):
         self.auto_completed_steps = set(
             int(k) for k in self.completed_data.keys()
         )
+        self._window = None  # set by PoEApp after QML loads
         self._current_zone = "Waiting..."
         self._substeps = []
         self._html_cache = {}  # {step_idx: [processed html lines]} — avoids re-running regex on every substep refresh
@@ -228,6 +228,21 @@ class OverlayBridge(QObject):
         self.request_save()
         self.baseFontSizeChanged.emit()
 
+    @pyqtSlot()
+    def start_drag(self):
+        """Hand window movement to the X11/Wayland compositor via startSystemMove().
+        Sends a single _NET_WM_MOVERESIZE event to the WM. The WM moves the window
+        natively — no per-pixel Python callbacks, no setX/setY storm, zero lag."""
+        if self._window:
+            self._window.startSystemMove()
+
+    def _on_window_moved(self):
+        """Called whenever the WM repositions the window (xChanged / yChanged)."""
+        if self._window:
+            self.config["window_x"] = self._window.x()
+            self.config["window_y"] = self._window.y()
+            self.request_save()  # debounced — won't spam disk during live drag
+
     @pyqtProperty(int, notify=windowPosChanged)
     def windowX(self): return self.config.get("window_x", 100)
     @pyqtProperty(int, notify=windowPosChanged)
@@ -264,15 +279,6 @@ class OverlayBridge(QObject):
     @pyqtProperty(int, notify=baseFontSizeChanged)
     def baseFontSize(self): return self.config.get("base_font_size", 12)
 
-    @pyqtProperty(bool, notify=clickThroughChanged)
-    def clickThrough(self): return self.config.get("click_through", False)
-
-    @pyqtSlot()
-    def toggleClickThrough(self):
-        self.config["click_through"] = not self.config.get("click_through", False)
-        self.request_save()
-        self.clickThroughChanged.emit()
-
     @pyqtSlot()
     def resetProgress(self):
         """Full reset — clears all completed data and backtrack tracking."""
@@ -302,6 +308,10 @@ class PoEApp:
             sys.exit(-1)
 
         root = self.engine.rootObjects()[0]
+        self.bridge._window = root  # needed by start_drag() and _on_window_moved()
+        # Save position whenever the WM moves the window (e.g. after startSystemMove)
+        root.xChanged.connect(self.bridge._on_window_moved)
+        root.yChanged.connect(self.bridge._on_window_moved)
         root.setProperty("width", self.config.get("window_width", 400))
         root.setProperty("height", self.config.get("window_height", 250))
         root.setProperty("x", self.config.get("window_x", 100))

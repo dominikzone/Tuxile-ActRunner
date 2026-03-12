@@ -11,9 +11,7 @@ Window {
     x: bridge.windowX
     y: bridge.windowY
 
-    flags: bridge.clickThrough
-           ? (Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowTransparentForInput)
-           : (Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+    flags: Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
 
     color: "transparent"
     title: "TuxileOverlay"
@@ -42,69 +40,10 @@ Window {
         onTriggered: cursorVisible = !cursorVisible
     }
 
-    // ── Ctrl+LMB anywhere: move window (DragHandler doesn't steal clicks from buttons) ──
-    DragHandler {
-        id: windowMoveHandler
-        acceptedModifiers: Qt.ControlModifier
-        acceptedButtons: Qt.LeftButton
-        dragThreshold: 0
-        target: null
-        property point lastPos
-        property bool isResize: false
-
-        onActiveChanged: {
-            if (active) {
-                // If press landed in bottom-right resize corner, let resizeHandle take over
-                isResize = centroid.pressPosition.x > root.width - 40 &&
-                           centroid.pressPosition.y > root.height - 40
-                if (!isResize) lastPos = centroid.position
-            } else {
-                bridge.updateWindowPos(root.x, root.y)
-                bridge.updateWindowSize(root.width, root.height)
-                bridge.save_config_to_disk()
-            }
-        }
-        onCentroidChanged: {
-            if (!active || isResize) return
-            root.x += centroid.position.x - lastPos.x
-            root.y += centroid.position.y - lastPos.y
-            lastPos = centroid.position
-        }
-    }
-
     // ── Ctrl+Wheel: adjust window opacity ────────────────────────────────
     WheelHandler {
         acceptedModifiers: Qt.ControlModifier
         onWheel: (event) => bridge.adjustOpacity(event.angleDelta.y > 0 ? 0.05 : -0.05)
-    }
-
-    // ── Bottom-right 40×40 px corner: Ctrl+LMB drag to resize ────────────
-    MouseArea {
-        id: resizeHandle
-        width: 40; height: 40
-        anchors.bottom: parent.bottom
-        anchors.right: parent.right
-        z: 20
-        property point lastPos
-
-        onPressed: (mouse) => {
-            if (mouse.modifiers & Qt.ControlModifier)
-                lastPos = Qt.point(mouse.x, mouse.y)
-            else
-                mouse.accepted = false
-        }
-        onPositionChanged: (mouse) => {
-            if (!(mouse.buttons & Qt.LeftButton)) return
-            let dx = mouse.x - lastPos.x
-            let dy = mouse.y - lastPos.y
-            root.width  = Math.max(280, root.width  + dx)
-            root.height = Math.max(150, root.height + dy)
-            lastPos = Qt.point(mouse.x, mouse.y)
-        }
-        onReleased: {
-            bridge.updateWindowSize(root.width, root.height)
-            bridge.save_config_to_disk()
-        }
     }
 
     // ── Main container ────────────────────────────────────────────
@@ -124,6 +63,39 @@ Window {
         Rectangle { width: 5; height: 5; color: neonCyan; z: 10; anchors.bottom: parent.bottom; anchors.left:  parent.left  }
         Rectangle { width: 5; height: 5; color: neonCyan; z: 10; anchors.bottom: parent.bottom; anchors.right: parent.right }
 
+        // Resize handle — INSIDE mainContainer (not a direct child of root).
+        // When Ctrl is not held it sets mouse.accepted=false, which bubbles the event
+        // UP to mainContainer (its parent) — mainContainer then delivers it to the
+        // ColumnLayout/buttons inside it. Previously this was a direct child of root,
+        // so rejected events went to root Window and buttons never got them.
+        MouseArea {
+            id: resizeHandle
+            width: 40; height: 40
+            anchors.bottom: parent.bottom
+            anchors.right: parent.right
+            z: 20
+            cursorShape: Qt.SizeFDiagCursor
+            property point lastPos
+            onPressed: (mouse) => {
+                if (mouse.modifiers & Qt.ControlModifier)
+                    lastPos = Qt.point(mouse.x, mouse.y)
+                else
+                    mouse.accepted = false
+            }
+            onPositionChanged: (mouse) => {
+                if (!(mouse.buttons & Qt.LeftButton)) return
+                let dx = mouse.x - lastPos.x
+                let dy = mouse.y - lastPos.y
+                root.width  = Math.max(280, root.width  + dx)
+                root.height = Math.max(150, root.height + dy)
+                lastPos = Qt.point(mouse.x, mouse.y)
+            }
+            onReleased: {
+                bridge.updateWindowSize(root.width, root.height)
+                bridge.save_config_to_disk()
+            }
+        }
+
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 10
@@ -135,25 +107,47 @@ Window {
                 Layout.fillWidth: true
                 spacing: 5
 
-                // MOVE label
-                Rectangle {
-                    width: moveLbl.implicitWidth + 10; height: 20
-                    color: "transparent"
-                    border.color: Qt.rgba(0, 1, 1, 0.4); border.width: 1
-                    z: 10
-                    Text {
-                        id: moveLbl; anchors.centerIn: parent
-                        text: "CTRL+MOVE"; font.family: "Orbitron"; font.pixelSize: 8; color: neonCyan
+                // ── Drag handle ──────────────────────────────────────────────────
+                // Ctrl+LMB on this area calls bridge.start_drag(), which issues a
+                // single QWindow.startSystemMove() → _NET_WM_MOVERESIZE to the X11 WM.
+                // The WM then moves the window natively. No onPositionChanged, no deltas,
+                // no setX/setY calls per pixel → zero lag on Linux.
+                // Visual (DRAG label + title text) is unchanged from previous version.
+                Item {
+                    height: 20
+                    Layout.fillWidth: true
+
+                    RowLayout {
+                        anchors.fill: parent
+                        spacing: 5
+
+                        Rectangle {
+                            width: moveLbl.implicitWidth + 10; height: 20
+                            color: "transparent"
+                            border.color: Qt.rgba(0, 1, 1, 0.4); border.width: 1
+                            Text {
+                                id: moveLbl; anchors.centerIn: parent
+                                text: "DRAG"; font.family: "Orbitron"; font.pixelSize: 8; color: neonCyan
+                            }
+                        }
+
+                        Text {
+                            text: "◈ TUXILE" + (cursorVisible ? "_" : " ")
+                            font.family: "Orbitron"; font.pixelSize: 11; font.bold: true; color: neonCyan
+                        }
+
+                        Item { Layout.fillWidth: true }
                     }
-                    // MOVE just shows label — actual drag is handled by windowMoveHandler above
-                }
 
-                Text {
-                    text: "◈ TUXILE" + (cursorVisible ? "_" : " ")
-                    font.family: "Orbitron"; font.pixelSize: 11; font.bold: true; color: neonCyan
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.SizeAllCursor
+                        onPressed: (mouse) => {
+                            if (mouse.modifiers & Qt.ControlModifier)
+                                bridge.start_drag()
+                        }
+                    }
                 }
-
-                Item { Layout.fillWidth: true }
 
                 // A- button
                 Rectangle {
@@ -206,27 +200,6 @@ Window {
                         anchors.fill: parent
                         z: 10
                         onClicked: bridge.resetProgress()
-                    }
-                }
-
-                // Click-through toggle
-                Rectangle {
-                    id: clickThroughBtn
-                    width: 22; height: 20
-                    color: "transparent"
-                    border.color: bridge.clickThrough ? dangerRed : neonCyan; border.width: 1
-                    z: 10
-                    Text {
-                        anchors.centerIn: parent
-                        text: bridge.clickThrough ? "L" : "U"
-                        font.family: "Orbitron"; font.pixelSize: 8; color: bridge.clickThrough ? dangerRed : neonCyan
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        z: 10
-                        onClicked: bridge.toggleClickThrough()
-                        ToolTip.visible: containsMouse
-                        ToolTip.text: bridge.clickThrough ? "Click-through ON (Locked)" : "Click-through OFF (Unlocked)"
                     }
                 }
 
@@ -345,6 +318,7 @@ Window {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 4
+                z: 10
 
                 // PREV
                 Rectangle {
