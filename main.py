@@ -259,13 +259,6 @@ class OverlayBridge(QObject):
         self.request_save()
         self.windowPosChanged.emit()
 
-    @pyqtSlot(int, int)
-    def updateWindowSize(self, w, h):
-        self.config["window_width"] = w
-        self.config["window_height"] = h
-        self.request_save()
-        self.windowSizeChanged.emit()
-
     @pyqtProperty(float, notify=opacityChanged)
     def opacity(self): return self.config.get("opacity", 0.85)
 

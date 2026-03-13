@@ -63,39 +63,6 @@ Window {
         Rectangle { width: 5; height: 5; color: neonCyan; z: 10; anchors.bottom: parent.bottom; anchors.left:  parent.left  }
         Rectangle { width: 5; height: 5; color: neonCyan; z: 10; anchors.bottom: parent.bottom; anchors.right: parent.right }
 
-        // Resize handle — INSIDE mainContainer (not a direct child of root).
-        // When Ctrl is not held it sets mouse.accepted=false, which bubbles the event
-        // UP to mainContainer (its parent) — mainContainer then delivers it to the
-        // ColumnLayout/buttons inside it. Previously this was a direct child of root,
-        // so rejected events went to root Window and buttons never got them.
-        MouseArea {
-            id: resizeHandle
-            width: 40; height: 40
-            anchors.bottom: parent.bottom
-            anchors.right: parent.right
-            z: 20
-            cursorShape: Qt.SizeFDiagCursor
-            property point lastPos
-            onPressed: (mouse) => {
-                if (mouse.modifiers & Qt.ControlModifier)
-                    lastPos = Qt.point(mouse.x, mouse.y)
-                else
-                    mouse.accepted = false
-            }
-            onPositionChanged: (mouse) => {
-                if (!(mouse.buttons & Qt.LeftButton)) return
-                let dx = mouse.x - lastPos.x
-                let dy = mouse.y - lastPos.y
-                root.width  = Math.max(280, root.width  + dx)
-                root.height = Math.max(150, root.height + dy)
-                lastPos = Qt.point(mouse.x, mouse.y)
-            }
-            onReleased: {
-                bridge.updateWindowSize(root.width, root.height)
-                bridge.save_config_to_disk()
-            }
-        }
-
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: 10
