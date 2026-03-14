@@ -8,6 +8,7 @@ Window {
     width:  bridge ? Math.max(300, bridge.windowWidth) : 400
     height: bridge ? bridge.targetHeight : 200
     minimumWidth: 300
+    minimumHeight: 120
     x: bridge ? bridge.windowX : 100
     y: bridge ? bridge.windowY : 100
 
@@ -87,7 +88,7 @@ Window {
                 width: tbAMinus.implicitWidth + 8; height: 16; radius: 2; color: "transparent"
                 border.color: Qt.rgba(0, 1, 1, 0.15); border.width: 1
                 Layout.alignment: Qt.AlignVCenter
-                Text { id: tbAMinus; anchors.centerIn: parent; text: "A-"; color: mutedText; font.family: "Share Tech Mono"; font.pixelSize: 8 }
+                Text { id: tbAMinus; anchors.centerIn: parent; text: "A-"; color: mutedText; font.family: "Barlow Condensed"; font.pixelSize: 8 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.decreaseFontSize() } }
             }
 
@@ -96,7 +97,7 @@ Window {
                 width: tbAPlus.implicitWidth + 8; height: 16; radius: 2; color: "transparent"
                 border.color: Qt.rgba(0, 1, 1, 0.15); border.width: 1
                 Layout.alignment: Qt.AlignVCenter
-                Text { id: tbAPlus; anchors.centerIn: parent; text: "A+"; color: mutedText; font.family: "Share Tech Mono"; font.pixelSize: 8 }
+                Text { id: tbAPlus; anchors.centerIn: parent; text: "A+"; color: mutedText; font.family: "Barlow Condensed"; font.pixelSize: 8 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.increaseFontSize() } }
             }
 
@@ -105,7 +106,7 @@ Window {
                 width: tbR.implicitWidth + 8; height: 16; radius: 2; color: "transparent"
                 border.color: rHover.containsMouse ? Qt.rgba(1, 0.27, 0.4, 0.5) : Qt.rgba(0, 1, 1, 0.15); border.width: 1
                 Layout.alignment: Qt.AlignVCenter
-                Text { id: tbR; anchors.centerIn: parent; text: "R"; color: rHover.containsMouse ? dangerRed : mutedText; font.family: "Share Tech Mono"; font.pixelSize: 8 }
+                Text { id: tbR; anchors.centerIn: parent; text: "R"; color: rHover.containsMouse ? dangerRed : mutedText; font.family: "Barlow Condensed"; font.pixelSize: 8 }
                 MouseArea { id: rHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.resetProgress() } }
             }
 
@@ -114,7 +115,7 @@ Window {
                 width: tbX.implicitWidth + 8; height: 16; radius: 2; color: "transparent"
                 border.color: xHover.containsMouse ? Qt.rgba(1, 0.27, 0.4, 0.5) : Qt.rgba(0, 1, 1, 0.15); border.width: 1
                 Layout.alignment: Qt.AlignVCenter
-                Text { id: tbX; anchors.centerIn: parent; text: "✕"; color: xHover.containsMouse ? dangerRed : mutedText; font.family: "Share Tech Mono"; font.pixelSize: 8 }
+                Text { id: tbX; anchors.centerIn: parent; text: "✕"; color: xHover.containsMouse ? dangerRed : mutedText; font.family: "Barlow Condensed"; font.pixelSize: 8 }
                 MouseArea { id: xHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) Qt.quit() } }
             }
         }
@@ -153,22 +154,12 @@ Window {
                 }
             }
 
-            // ▼ button + CTRL hint
+            // ▼ button
             Item {
                 id: sidebarNext
                 anchors.bottom: parent.bottom
-                width: parent.width; height: 30
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top; anchors.topMargin: 4
-                    text: "▼"; color: neonCyan; font.pixelSize: 11
-                }
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.bottom; anchors.bottomMargin: 2
-                    text: "CTRL"; color: mutedText
-                    font.family: "Share Tech Mono"; font.pixelSize: 6
-                }
+                width: parent.width; height: 22
+                Text { anchors.centerIn: parent; text: "▼"; color: neonCyan; font.pixelSize: 11 }
                 MouseArea {
                     anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                     onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.onNextStep() }
@@ -192,7 +183,7 @@ Window {
                         var ratio = total > 1 ? bridge.currentActStepIndex / (total - 1) : 1.0
                         return ratio >= 0.9 ? neonGreen : neonCyan
                     }
-                    font.family: "Share Tech Mono"; font.pixelSize: 7
+                    font.family: "Barlow Condensed"; font.pixelSize: 7
                 }
             }
 
@@ -248,15 +239,16 @@ Window {
 
                     Text {
                         text: "ACT " + bridge.currentActNumber
-                        color: mutedText; font.family: "Share Tech Mono"; font.pixelSize: 8
+                        color: mutedText; font.family: "Barlow Condensed"; font.pixelSize: 8
+                        font.weight: Font.DemiBold
                     }
 
                     Item { Layout.fillWidth: true }
 
                     Text {
                         text: bridge.stepZoneName
-                        color: neonCyan; font.family: "Share Tech Mono"
-                        font.bold: true; font.pixelSize: bridge.baseFontSize + 1
+                        color: neonCyan; font.family: "Barlow Condensed"
+                        font.weight: Font.DemiBold; font.pixelSize: bridge.baseFontSize + 1
                         font.letterSpacing: 1
                     }
 
@@ -264,7 +256,8 @@ Window {
 
                     Text {
                         text: (bridge.currentActStepIndex + 1) + "/" + bridge.currentActTotalSteps
-                        color: neonPurple; font.family: "Share Tech Mono"; font.pixelSize: 8
+                        color: neonPurple; font.family: "Barlow Condensed"; font.pixelSize: 8
+                        font.weight: Font.DemiBold
                     }
                 }
 
@@ -294,7 +287,7 @@ Window {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "⚠ Log file not set — auto-tracking disabled"
                         color: neonYellow
-                        font.family: "Share Tech Mono"; font.pixelSize: 8
+                        font.family: "Barlow Condensed"; font.pixelSize: 8
                     }
                 }
 
@@ -332,7 +325,8 @@ Window {
                                     return mutedText
                                 }
                                 font.pixelSize: bridge.baseFontSize
-                                font.family: "Share Tech Mono"
+                                font.family: "Barlow Condensed"
+                                font.weight: Font.DemiBold
                             }
 
                             // Text column
@@ -346,10 +340,11 @@ Window {
                                     return mutedText
                                 }
                                 opacity: modelData.isCompleted ? 0.3 : 1.0
-                                font.family: "Share Tech Mono"
+                                font.family: "Barlow Condensed"
                                 font.pixelSize: modelData.isCurrent
                                                 ? bridge.baseFontSize
                                                 : Math.max(8, bridge.baseFontSize - 1)
+                                font.weight: Font.DemiBold
                                 textFormat: Text.RichText
                                 clip: true
                             }

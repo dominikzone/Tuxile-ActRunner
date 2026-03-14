@@ -3,6 +3,7 @@ import os
 import re
 from PyQt6.QtWidgets import QApplication, QFileDialog
 from PyQt6.QtCore import Qt, QObject, pyqtProperty, pyqtSignal, pyqtSlot, QUrl, QTimer
+from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtQml import QQmlApplicationEngine
 
 from config_manager import load_config, save_config
@@ -370,7 +371,7 @@ class OverlayBridge(QObject):
     def recalculate_height(self):
         n = len(self._substeps)
         fs = self.config.get("base_font_size", 9)
-        h = 26 + 22 + 1 + 6 + n * (fs + 6) + max(0, n - 1) * 3 + 6
+        h = max(120, 26 + 22 + 1 + 6 + n * (fs + 6) + max(0, n - 1) * 3 + 6)
         if h != self._target_height:
             if self._window:
                 # Keep bottom edge fixed: window grows/shrinks upward
@@ -401,6 +402,12 @@ class OverlayBridge(QObject):
 class PoEApp:
     def __init__(self):
         self.app = QApplication(sys.argv)
+        font_id = QFontDatabase.addApplicationFont(
+            os.path.join(os.path.dirname(__file__),
+                         "assets/fonts/BarlowCondensed-SemiBold.ttf")
+        )
+        if font_id == -1:
+            print("Font not found locally — will use system fallback")
         self.config = load_config()
         self.bridge = OverlayBridge(self.config)
 
