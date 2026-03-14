@@ -1,14 +1,23 @@
 import sys
 import os
 import re
-from math import ceil
-from PyQt6.QtWidgets import QApplication, QFileDialog
+from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, QObject, pyqtProperty, pyqtSignal, pyqtSlot, QUrl, QTimer
 from PyQt6.QtQml import QQmlApplicationEngine
 
 from config_manager import load_config, save_config
 from walkthrough_data import WALKTHROUGH, TOWNS, ICON_MAPPING
 from log_watcher import LogWatcher
+
+# Maps [ICON:TYPE] tags in walkthrough text to icon type strings used by QML
+_ICON_TO_TYPE = {
+    "WAYPOINT":     "waypoint",
+    "KILL_BOSS":    "boss",
+    "QUEST_ITEM":   "item",
+    "COLLECT_ITEM": "item",
+    "TAKE_REWARD":  "quest",
+    "TRIAL":        "trial",
+}
 
 
 def _compute_act_boundaries():
@@ -39,6 +48,7 @@ class OverlayBridge(QObject):
     opacityChanged          = pyqtSignal()
     baseFontSizeChanged     = pyqtSignal()
     currentZoneChanged      = pyqtSignal()
+    targetHeightChanged     = pyqtSignal()
 
     def __init__(self, config):
         super().__init__()
@@ -50,6 +60,7 @@ class OverlayBridge(QObject):
         self._current_zone = "Waiting..."
         self._substeps = []
         self._html_cache = {}
+        self._target_height = 200
         self.update_substeps()
 
         self.save_timer = QTimer()
@@ -64,6 +75,12 @@ class OverlayBridge(QObject):
 
     def request_save(self):
         self.save_timer.start()
+
+    # ── Target height (Python-computed, QML binds to this) ────────────
+
+    @pyqtProperty(int, notify=targetHeightChanged)
+    def targetHeight(self):
+        return self._target_height
 
     # ── Step index ────────────────────────────────────────────────────
 
@@ -145,6 +162,7 @@ class OverlayBridge(QObject):
         return ""
 
     # ── HTML cache ────────────────────────────────────────────────────
+    # Cache format: {idx: [{"icon": str, "text": str}, ...]}
 
     def _ensure_cached(self, idx):
         if idx < 0 or idx >= len(WALKTHROUGH) or idx in self._html_cache:
@@ -154,43 +172,51 @@ class OverlayBridge(QObject):
         zone_name = step["zone"]
 
         text = re.sub(r"ACT \d+\n?", "", text)
-        text = re.sub(r'\[ICON:[^\]]+\]', '', text)
 
-        replacements = {
-            "[WP]":         "<span style='color:#00ffff;font-weight:bold'>[WP]</span>",
-            "[Q]":          "<span style='color:#ffcc00;font-weight:bold'>[QUEST]</span>",
-            "[SKILL_POINT]":"<span style='color:#00ff88;font-weight:bold'>[SKILL]</span>",
-            "[TRIAL":       "<span style='color:#ff4466;font-weight:bold'>[LAB TRIAL",
-        }
-        for k, v in replacements.items():
-            text = text.replace(k, v)
+        raw_lines = [line.strip() for line in text.split(".") if line.strip()]
+        result = []
 
-        action_map = {
-            "Kill": "#ff4466", "Defeat": "#ff4466", "Clear": "#ff4466", "Slay": "#ff4466",
-            "Help": "#00ff88", "Talk": "#00ff88", "Quest": "#00ff88", "Reward": "#00ff88",
-            "Go to": "#00ffff", "Enter": "#00ffff", "Travel": "#00ffff",
-        }
-        for action, color in action_map.items():
-            text = re.sub(
-                rf"\b{action}\b",
-                f"<span style='color:{color};font-weight:bold'>{action}</span>",
-                text
-            )
+        for line in raw_lines:
+            # Extract icon type from first [ICON:...] tag before stripping
+            icon_match = re.search(r'\[ICON:([^\]]+)\]', line)
+            icon_type = ""
+            if icon_match:
+                icon_type = _ICON_TO_TYPE.get(icon_match.group(1).upper(), "")
 
-        boss_matches = re.findall(r"Kill ([A-Za-z][a-zA-Z' -]+?)(?:\.|,| for |\[SKILL\]|\n)", text)
-        for boss in boss_matches:
-            text = text.replace(boss, f"<span style='color:#00ffff;font-weight:bold'>{boss}</span>")
+            # Strip all [ICON:...] tags
+            line = re.sub(r'\[ICON:[^\]]+\]', '', line).strip()
 
-        if zone_name in text:
-            text = text.replace(zone_name, f"<span style='color:#00ffff;font-weight:bold'>{zone_name}</span>")
+            replacements = {
+                "[WP]":         "<span style='color:#00ffff;font-weight:bold'>[WP]</span>",
+                "[Q]":          "<span style='color:#ffcc00;font-weight:bold'>[QUEST]</span>",
+                "[SKILL_POINT]":"<span style='color:#00ff88;font-weight:bold'>[SKILL]</span>",
+                "[TRIAL":       "<span style='color:#ff4466;font-weight:bold'>[LAB TRIAL",
+            }
+            for k, v in replacements.items():
+                line = line.replace(k, v)
 
-        self._html_cache[idx] = [line.strip() for line in text.split(".") if line.strip()]
+            action_map = {
+                "Kill": "#ff4466", "Defeat": "#ff4466", "Clear": "#ff4466", "Slay": "#ff4466",
+                "Help": "#00ff88", "Talk": "#00ff88", "Quest": "#00ff88", "Reward": "#00ff88",
+                "Go to": "#00ffff", "Enter": "#00ffff", "Travel": "#00ffff",
+            }
+            for action, color in action_map.items():
+                line = re.sub(
+                    rf"\b{action}\b",
+                    f"<span style='color:{color};font-weight:bold'>{action}</span>",
+                    line
+                )
 
-    def _get_step_html(self, idx):
-        if idx < 0 or idx >= len(WALKTHROUGH):
-            return ""
-        self._ensure_cached(idx)
-        return ".<br/>".join(self._html_cache[idx]) + "."
+            boss_matches = re.findall(r"Kill ([A-Za-z][a-zA-Z' -]+?)(?:,| for |$)", line)
+            for boss in boss_matches:
+                line = line.replace(boss, f"<span style='color:#00ffff;font-weight:bold'>{boss}</span>")
+
+            if zone_name in line:
+                line = line.replace(zone_name, f"<span style='color:#00ffff;font-weight:bold'>{zone_name}</span>")
+
+            result.append({"icon": icon_type, "text": line})
+
+        self._html_cache[idx] = result
 
     # ── Substep properties ────────────────────────────────────────────
 
@@ -198,27 +224,21 @@ class OverlayBridge(QObject):
     def substeps(self):
         return self._substeps
 
-    @pyqtProperty(str, notify=substepsChanged)
-    def previousSubstep(self):
-        return self._get_step_html(self.currentStepIndex - 1)
-
-    @pyqtProperty(str, notify=substepsChanged)
-    def currentSubstep(self):
-        return self._get_step_html(self.currentStepIndex)
-
-    @pyqtProperty(str, notify=substepsChanged)
-    def nextSubstep(self):
-        return self._get_step_html(self.currentStepIndex + 1)
-
     def update_substeps(self):
         idx = self.currentStepIndex
         if 0 <= idx < len(WALKTHROUGH):
             self._ensure_cached(idx)
             lines = self._html_cache[idx]
-            completed_indices = self.completed_data.get(str(idx), [])
+            completed_set = set(self.completed_data.get(str(idx), []))
+            first_active = next((i for i in range(len(lines)) if i not in completed_set), -1)
             self._substeps = [
-                {"text": line + ".", "isCompleted": i in completed_indices}
-                for i, line in enumerate(lines)
+                {
+                    "text":        item["text"] + ".",
+                    "isCompleted": i in completed_set,
+                    "isCurrent":   i == first_active,
+                    "iconType":    item["icon"],
+                }
+                for i, item in enumerate(lines)
             ]
             self.substepsChanged.emit()
             self.recalculate_height()
@@ -278,7 +298,7 @@ class OverlayBridge(QObject):
 
     @pyqtSlot()
     def increaseFontSize(self):
-        new_size = min(16, self.config.get("base_font_size", 12) + 1)
+        new_size = min(16, self.config.get("base_font_size", 9) + 1)
         self.config["base_font_size"] = new_size
         self.request_save()
         self.baseFontSizeChanged.emit()
@@ -286,7 +306,7 @@ class OverlayBridge(QObject):
 
     @pyqtSlot()
     def decreaseFontSize(self):
-        new_size = max(9, self.config.get("base_font_size", 12) - 1)
+        new_size = max(9, self.config.get("base_font_size", 9) - 1)
         self.config["base_font_size"] = new_size
         self.request_save()
         self.baseFontSizeChanged.emit()
@@ -334,15 +354,25 @@ class OverlayBridge(QObject):
         self.opacityChanged.emit()
 
     @pyqtProperty(int, notify=baseFontSizeChanged)
-    def baseFontSize(self): return self.config.get("base_font_size", 12)
+    def baseFontSize(self): return self.config.get("base_font_size", 9)
 
     # ── Height auto-sizing ────────────────────────────────────────────
+    # Formula: titlebar(26) + topbar(22) + divider(1) + substeps*(fs+6) + padding(12)
 
     @pyqtSlot()
     def recalculate_height(self):
-        # Height is driven by QML's implicitHeight chain; Python just persists the value.
-        # The actual save happens via PoEApp._save_window_size connected to heightChanged.
-        pass
+        n = len(self._substeps)
+        fs = self.config.get("base_font_size", 9)
+        h = 26 + 22 + 1 + n * (fs + 6) + 12
+        if h != self._target_height:
+            if self._window:
+                # Keep bottom edge fixed: window grows/shrinks upward
+                current_bottom = self._window.y() + self._window.height()
+                new_y = current_bottom - h
+                self.config["window_y"] = new_y
+                self.windowPosChanged.emit()
+            self._target_height = h
+            self.targetHeightChanged.emit()
 
     # ── Reset ─────────────────────────────────────────────────────────
 
@@ -381,12 +411,14 @@ class PoEApp:
         root.xChanged.connect(self.bridge._on_window_moved)
         root.yChanged.connect(self.bridge._on_window_moved)
         root.widthChanged.connect(self._save_window_size)
-        root.heightChanged.connect(self._save_window_size)
         root.setProperty("width", self.config.get("window_width", 400))
         root.setProperty("x", self.config.get("window_x", 100))
         root.setProperty("y", self.config.get("window_y", 100))
         root.requestActivate()
         root.raise_()
+
+        # Trigger initial height calculation now that _window is set
+        self.bridge.recalculate_height()
 
         self.setup_log_watcher()
         QTimer.singleShot(0, self.scan_log_history)
@@ -435,7 +467,6 @@ class PoEApp:
         w = self.bridge._window
         if w:
             self.config["window_width"]  = w.width()
-            self.config["window_height"] = w.height()
             self.bridge.request_save()
 
     def on_zone_changed(self, zone_name):
