@@ -1,7 +1,7 @@
 import sys
 import os
 import re
-from PyQt6.QtWidgets import QApplication, QFileDialog
+from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, QObject, pyqtProperty, pyqtSignal, pyqtSlot, QUrl, QTimer
 from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtQml import QQmlApplicationEngine
@@ -43,6 +43,18 @@ def _compute_act_boundaries():
     return boundaries
 
 ACT_BOUNDARIES = _compute_act_boundaries()
+
+
+def _read_poe_path():
+    path_file = os.path.join(os.path.dirname(__file__), "poe_path.txt")
+    if not os.path.exists(path_file):
+        return ""
+    with open(path_file, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line
+    return ""
 
 
 class OverlayBridge(QObject):
@@ -435,23 +447,16 @@ class PoEApp:
         self.bridge.recalculate_height()
 
         self.app.aboutToQuit.connect(self.cleanup)
+        poe_path = _read_poe_path()
+        if poe_path:
+            self.config["client_txt_path"] = poe_path
         self.setup_log_watcher()
         QTimer.singleShot(0, self.scan_log_history)
 
     def setup_log_watcher(self):
         path = self.config.get("client_txt_path", "")
         if not path or not os.path.exists(path):
-            path, _ = QFileDialog.getOpenFileName(
-                None,
-                "Select Path of Exile Client.txt",
-                os.path.expanduser("~"),
-                "Log files (Client.txt);;All files (*)"
-            )
-            if path:
-                self.config["client_txt_path"] = path
-                save_config(self.config)
-            else:
-                return  # user cancelled — auto-tracking disabled
+            return  # path not set or missing — overlay warning handles user communication
         if path and os.path.exists(path):
             boss_names = set()
             for step in WALKTHROUGH:

@@ -6,3 +6,4 @@ venv/
 config.json
 .env
 plans/
+poe_path.txt

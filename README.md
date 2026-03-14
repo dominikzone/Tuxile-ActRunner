@@ -1,3 +1,19 @@
+## Quick Setup
+
+1. Open `poe_path.txt` in the Tuxile folder
+2. Paste the full path to your Path of Exile `Client.txt` file
+3. Save the file and launch Tuxile
+
+**How to find Client.txt:**
+- Steam default: `/home/USERNAME/.steam/steam/steamapps/common/Path of Exile/logs/Client.txt`
+- Proton/custom library: `/mnt/YOUR_DRIVE/SteamLibrary/steamapps/common/Path of Exile/logs/Client.txt`
+- You can find the exact path by right-clicking Path of Exile in Steam → Properties → Local Files → Browse
+
+**If you move or reinstall Path of Exile:**
+Simply edit `poe_path.txt` with the new path and restart Tuxile.
+
+---
+
 🐧 Tuxile ActRunner
 
 Tuxile ActRunner is a lightweight, minimalist desktop overlay designed specifically for Path of Exile 1 players on Linux. Heavily inspired by the popular "Lailloken UI", it acts as an interactive, step-by-step campaign walkthrough to help you breeze through all 10 acts efficiently without ever alt-tabbing out of the game.
