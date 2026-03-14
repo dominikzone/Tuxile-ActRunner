@@ -4,10 +4,10 @@ import os
 DEFAULT_CONFIG = {
     "window_x": 100,
     "window_y": 100,
-    "window_width": 300,
+    "window_width": 400,
     "window_height": 150,
     "current_step": 0,
-    "client_txt_path": "/mnt/a24ff19e-fc7e-47ad-a274-4c1eb1999c3a/SteamLibrary/steamapps/common/Path of Exile/logs/Client.txt",
+    "client_txt_path": "",
     "theme": "Exile Dark",
     "opacity": 0.85,
     "click_through": False,

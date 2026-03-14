@@ -1,7 +1,7 @@
 import sys
 import os
 import re
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QFileDialog
 from PyQt6.QtCore import Qt, QObject, pyqtProperty, pyqtSignal, pyqtSlot, QUrl, QTimer
 from PyQt6.QtQml import QQmlApplicationEngine
 
@@ -17,6 +17,10 @@ _ICON_TO_TYPE = {
     "COLLECT_ITEM": "item",
     "TAKE_REWARD":  "quest",
     "TRIAL":        "trial",
+    "ENTER_TOWN":   "town",
+    "ENTER_ZONE":   "zone",
+    "OPEN_PASSAGE": "zone",
+    "SKILL_POINT":  "quest",
 }
 
 
@@ -33,6 +37,8 @@ def _compute_act_boundaries():
             current_start = i
     if current_act is not None:
         boundaries.append((current_act, current_start, len(WALKTHROUGH) - 1))
+    if not boundaries:
+        return [(1, 0, len(WALKTHROUGH) - 1)]
     return boundaries
 
 ACT_BOUNDARIES = _compute_act_boundaries()
@@ -137,7 +143,7 @@ class OverlayBridge(QObject):
         for act_num, start, end in ACT_BOUNDARIES:
             if start <= step_idx <= end:
                 return act_num, step_idx - start, end - start + 1
-        return 1, 0, 1
+        return (1, step_idx, len(WALKTHROUGH))
 
     @pyqtProperty(int, notify=actInfoChanged)
     def currentActNumber(self):
@@ -357,13 +363,14 @@ class OverlayBridge(QObject):
     def baseFontSize(self): return self.config.get("base_font_size", 9)
 
     # ── Height auto-sizing ────────────────────────────────────────────
-    # Formula: titlebar(26) + topbar(22) + divider(1) + substeps*(fs+6) + padding(12)
+    # Formula: titlebar(26) + topbar(22) + divider(1) + topPadding(6)
+    #          + n*(fs+6) + spacing*(n-1)*3 + bottomPadding(6)
 
     @pyqtSlot()
     def recalculate_height(self):
         n = len(self._substeps)
         fs = self.config.get("base_font_size", 9)
-        h = 26 + 22 + 1 + n * (fs + 6) + 12
+        h = 26 + 22 + 1 + 6 + n * (fs + 6) + max(0, n - 1) * 3 + 6
         if h != self._target_height:
             if self._window:
                 # Keep bottom edge fixed: window grows/shrinks upward
@@ -420,11 +427,24 @@ class PoEApp:
         # Trigger initial height calculation now that _window is set
         self.bridge.recalculate_height()
 
+        self.app.aboutToQuit.connect(self.cleanup)
         self.setup_log_watcher()
         QTimer.singleShot(0, self.scan_log_history)
 
     def setup_log_watcher(self):
-        path = self.config.get("client_txt_path")
+        path = self.config.get("client_txt_path", "")
+        if not path or not os.path.exists(path):
+            path, _ = QFileDialog.getOpenFileName(
+                None,
+                "Select Path of Exile Client.txt",
+                os.path.expanduser("~"),
+                "Log files (Client.txt);;All files (*)"
+            )
+            if path:
+                self.config["client_txt_path"] = path
+                save_config(self.config)
+            else:
+                return  # user cancelled — auto-tracking disabled
         if path and os.path.exists(path):
             boss_names = set()
             for step in WALKTHROUGH:
@@ -484,7 +504,7 @@ class PoEApp:
         for i, step in enumerate(WALKTHROUGH):
             if step["zone"].lower() == zone_name.lower():
                 if i < self.bridge.highwater_mark:
-                    break  # backtracking into an old zone — ignore
+                    continue  # backtracking into an old zone — ignore
                 if self.bridge.currentStepIndex != i:
                     self.bridge.currentStepIndex = i
                 break
@@ -515,6 +535,11 @@ class PoEApp:
                 if keyword.lower() in line.lower():
                     self.bridge.mark_substep_completed(i, auto=True)
                     break
+
+    def cleanup(self):
+        if hasattr(self, 'watcher'):
+            self.watcher.requestInterruption()
+            self.watcher.wait(2000)
 
     def run(self):
         return self.app.exec()

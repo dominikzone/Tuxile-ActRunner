@@ -1,6 +1,6 @@
 import os
 import re
-from PyQt6.QtCore import QThread, pyqtSignal, QThread
+from PyQt6.QtCore import QThread, pyqtSignal
 
 class LogWatcher(QThread):
     zone_changed = pyqtSignal(str)
