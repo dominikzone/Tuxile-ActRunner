@@ -73,6 +73,56 @@ Window {
                 Rectangle { width: 7; height: 7; radius: 4; color: neonGreen  }
             }
 
+            // Character selector
+            Rectangle {
+                id: charSelectorRect
+                width: Math.min(charSelectorName.implicitWidth + 18, 120)
+                height: 16; radius: 2
+                color: "transparent"
+                border.color: charSelectorMouse.containsMouse
+                              ? Qt.rgba(0, 1, 1, 0.35) : Qt.rgba(0, 1, 1, 0.18)
+                border.width: 1
+                Layout.alignment: Qt.AlignVCenter
+
+                property bool dropdownOpen: false
+
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 4; anchors.rightMargin: 4
+                    spacing: 2
+
+                    Text {
+                        id: charSelectorName
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: bridge ? bridge.activeCharacterName : "—"
+                        color: neonCyan
+                        font.family: "Barlow Condensed"
+                        font.pixelSize: 9; font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                        width: Math.min(implicitWidth, charSelectorRect.width - 16)
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: charSelectorRect.dropdownOpen ? "▲" : "▼"
+                        color: mutedText; font.pixelSize: 6
+                    }
+                }
+
+                MouseArea {
+                    id: charSelectorMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onPressed: (m) => {
+                        if (m.modifiers & Qt.ControlModifier) {
+                            charSelectorRect.dropdownOpen = !charSelectorRect.dropdownOpen
+                            if (charSelectorRect.dropdownOpen)
+                                newCharInput.visible = false
+                        }
+                    }
+                }
+            }
+
             Item { Layout.fillWidth: true }
 
             Text {
@@ -121,10 +171,219 @@ Window {
         }
     }
 
+    // ── CHARACTER DROPDOWN (z above content) ─────────────────────────
+    Rectangle {
+        id: charDropdown
+        visible: charSelectorRect.dropdownOpen
+        z: 100
+        anchors.top: titleBar.bottom
+        x: 7
+        width: 175
+        height: visible ? charDropdownCol.implicitHeight + 8 : 0
+        color: "#0d0d20"
+        border.color: Qt.rgba(0, 1, 1, 0.25)
+        border.width: 1
+        radius: 4
+        clip: true
+
+        Column {
+            id: charDropdownCol
+            anchors.left: parent.left; anchors.right: parent.right
+            anchors.top: parent.top
+            topPadding: 4; bottomPadding: 4
+
+            Repeater {
+                model: bridge ? bridge.characterList : []
+                delegate: Item {
+                    width: charDropdownCol.width
+                    height: 20
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: modelData.isActive ? Qt.rgba(0, 1, 1, 0.08) : "transparent"
+                    }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8; anchors.rightMargin: 8
+                        spacing: 4
+
+                        Text {
+                            text: modelData.name
+                            color: modelData.isActive ? neonCyan : mutedText
+                            font.family: "Barlow Condensed"
+                            font.pixelSize: 10; font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: "ACT " + modelData.actNumber
+                            color: neonPurple
+                            font.family: "Barlow Condensed"; font.pixelSize: 8
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onPressed: (m) => {
+                            if (m.modifiers & Qt.ControlModifier) {
+                                bridge.switchCharacter(modelData.name)
+                                charSelectorRect.dropdownOpen = false
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Divider
+            Rectangle {
+                width: charDropdownCol.width
+                height: 1
+                color: Qt.rgba(0, 1, 1, 0.08)
+            }
+
+            // New character row
+            Item {
+                id: newCharRow
+                width: charDropdownCol.width
+                height: 22
+
+                Text {
+                    visible: !newCharInput.visible
+                    anchors.left: parent.left; anchors.leftMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "＋ New character"
+                    color: neonGreen
+                    font.family: "Barlow Condensed"; font.pixelSize: 10; font.weight: Font.DemiBold
+                }
+
+                TextInput {
+                    id: newCharInput
+                    visible: false
+                    anchors.left: parent.left; anchors.right: parent.right
+                    anchors.leftMargin: 8; anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: neonGreen
+                    font.family: "Barlow Condensed"; font.pixelSize: 10; font.weight: Font.DemiBold
+                    selectionColor: Qt.rgba(0, 1, 0.53, 0.3)
+
+                    Text {
+                        anchors.fill: parent
+                        text: "character name..."
+                        color: Qt.rgba(0, 1, 0.53, 0.35)
+                        font: parent.font
+                        visible: parent.text.length === 0
+                    }
+
+                    Keys.onReturnPressed: {
+                        var trimmed = text.trim()
+                        if (trimmed !== "") {
+                            bridge.addCharacter(trimmed)
+                            text = ""
+                            visible = false
+                        }
+                    }
+                    Keys.onEscapePressed: {
+                        text = ""
+                        visible = false
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    visible: !newCharInput.visible
+                    cursorShape: Qt.PointingHandCursor
+                    onPressed: (m) => {
+                        if (m.modifiers & Qt.ControlModifier) {
+                            newCharInput.visible = true
+                            newCharInput.forceActiveFocus()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── UPDATE BAR ────────────────────────────────────────────────────
+    Rectangle {
+        id: updateBar
+        anchors.top: titleBar.bottom
+        anchors.left: parent.left; anchors.right: parent.right
+        height: bridge && bridge.showUpdateBar ? 22 : 0
+        visible: bridge ? bridge.showUpdateBar : false
+        color: Qt.rgba(1, 0.8, 0, 0.06)
+        clip: true
+
+        Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left; anchors.right: parent.right
+            height: 1; color: Qt.rgba(1, 0.8, 0, 0.15)
+        }
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 8; anchors.rightMargin: 6
+            spacing: 6
+
+            Text {
+                text: "⬆ " + (bridge ? bridge.updateText : "")
+                color: neonYellow
+                font.family: "Barlow Condensed"; font.pixelSize: 9; font.weight: Font.DemiBold
+            }
+
+            Item { Layout.fillWidth: true }
+
+            // Open Github button
+            Rectangle {
+                width: upBtnText.implicitWidth + 8; height: 14; radius: 2
+                color: "transparent"
+                border.color: upHover.containsMouse ? Qt.rgba(1, 0.8, 0, 0.7) : Qt.rgba(1, 0.8, 0, 0.4)
+                border.width: 1
+
+                Text {
+                    id: upBtnText
+                    anchors.centerIn: parent
+                    text: "↗ GITHUB"
+                    color: upHover.containsMouse ? "#ffe066" : neonYellow
+                    font.family: "Barlow Condensed"; font.pixelSize: 8; font.weight: Font.DemiBold
+                }
+                MouseArea {
+                    id: upHover
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.openGithub() }
+                }
+            }
+
+            // Dismiss button
+            Rectangle {
+                width: dimBtnText.implicitWidth + 8; height: 14; radius: 2
+                color: "transparent"
+                border.color: Qt.rgba(0, 1, 1, 0.15); border.width: 1
+
+                Text {
+                    id: dimBtnText
+                    anchors.centerIn: parent
+                    text: "✕"
+                    color: mutedText
+                    font.family: "Barlow Condensed"; font.pixelSize: 8
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.dismissUpdate() }
+                }
+            }
+        }
+    }
+
     // ── BODY (content + sidebar) ──────────────────────────────────────
     Item {
         id: bodyRow
-        anchors.top: titleBar.bottom
+        anchors.top: updateBar.bottom
         anchors.left: parent.left; anchors.right: parent.right
         anchors.bottom: parent.bottom
 

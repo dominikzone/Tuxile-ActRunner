@@ -7,6 +7,10 @@ from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtQml import QQmlApplicationEngine
 
 from config_manager import load_config, save_config
+from character_manager import (
+    load_characters, save_characters, get_active_character,
+    set_active_character, add_character, delete_character, CHARACTERS_FILE
+)
 from walkthrough_data import WALKTHROUGH, TOWNS, ICON_MAPPING
 from log_watcher import LogWatcher
 
@@ -68,10 +72,15 @@ class OverlayBridge(QObject):
     baseFontSizeChanged     = pyqtSignal()
     currentZoneChanged      = pyqtSignal()
     targetHeightChanged     = pyqtSignal()
+    characterListChanged    = pyqtSignal()
+    updateAvailable         = pyqtSignal()
 
-    def __init__(self, config):
+    def __init__(self, char_data, global_config):
         super().__init__()
-        self.config = config
+        self.char_data = char_data
+        self.global_config = global_config
+        active = char_data["active"]
+        self.config = char_data["characters"][active]
         self.completed_data = self.config.get("completed_data", {})
         self.auto_completed_steps = set(int(k) for k in self.completed_data.keys())
         self.highwater_mark = self.config.get("highwater_mark", 0)
@@ -80,6 +89,9 @@ class OverlayBridge(QObject):
         self._substeps = []
         self._html_cache = {}
         self._target_height = 200
+        self._update_current = ""
+        self._update_latest = ""
+        self._show_update_bar = False
         self.update_substeps()
 
         self.save_timer = QTimer()
@@ -89,7 +101,8 @@ class OverlayBridge(QObject):
 
     @pyqtSlot()
     def save_config_to_disk(self):
-        save_config(self.config)
+        save_characters(self.char_data)
+        save_config(self.global_config)
         self.save_timer.stop()
 
     def request_save(self):
@@ -157,6 +170,12 @@ class OverlayBridge(QObject):
             if start <= step_idx <= end:
                 return act_num, step_idx - start, end - start + 1
         return (1, step_idx, len(WALKTHROUGH))
+
+    def _step_to_act(self, step_idx):
+        for act_num, start, end in ACT_BOUNDARIES:
+            if start <= step_idx <= end:
+                return act_num
+        return 1
 
     @pyqtProperty(int, notify=actInfoChanged)
     def currentActNumber(self):
@@ -376,14 +395,15 @@ class OverlayBridge(QObject):
     def baseFontSize(self): return self.config.get("base_font_size", 9)
 
     # ── Height auto-sizing ────────────────────────────────────────────
-    # Formula: titlebar(26) + topbar(22) + divider(1) + topPadding(6)
-    #          + n*(fs+6) + spacing*(n-1)*3 + bottomPadding(6)
+    # Formula: titlebar(26) + updateBar(22 if visible) + topbar(22) + divider(1)
+    #          + topPadding(6) + n*(fs+6) + spacing*(n-1)*3 + bottomPadding(6)
 
     @pyqtSlot()
     def recalculate_height(self):
         n = len(self._substeps)
         fs = self.config.get("base_font_size", 9)
-        h = max(120, 26 + 22 + 1 + 6 + n * (fs + 6) + max(0, n - 1) * 3 + 6)
+        extra = 22 if self._show_update_bar else 0
+        h = max(120, 26 + extra + 22 + 1 + 6 + n * (fs + 6) + max(0, n - 1) * 3 + 6)
         if h != self._target_height:
             if self._window:
                 # Keep bottom edge fixed: window grows/shrinks upward
@@ -410,6 +430,115 @@ class OverlayBridge(QObject):
         self.actInfoChanged.emit()
         self.update_substeps()
 
+    # ── Character management ──────────────────────────────────────────
+
+    @pyqtProperty(str, notify=characterListChanged)
+    def activeCharacterName(self):
+        return self.char_data.get("active", "Default")
+
+    @pyqtProperty('QVariantList', notify=characterListChanged)
+    def characterList(self):
+        active = self.char_data.get("active", "Default")
+        result = []
+        for name, cfg in self.char_data.get("characters", {}).items():
+            step_idx = cfg.get("current_step", 0)
+            act_num = self._step_to_act(step_idx)
+            result.append({
+                "name": name,
+                "actNumber": act_num,
+                "isActive": name == active,
+            })
+        return result
+
+    @pyqtSlot(str)
+    def switchCharacter(self, name):
+        if name not in self.char_data.get("characters", {}):
+            return
+        set_active_character(self.char_data, name)
+        self.config = self.char_data["characters"][name]
+        self.completed_data = self.config.get("completed_data", {})
+        self.auto_completed_steps = set(int(k) for k in self.completed_data.keys())
+        self.highwater_mark = self.config.get("highwater_mark", 0)
+        self._html_cache = {}
+        save_characters(self.char_data)
+        if self._window:
+            self._window.setProperty("x", self.config.get("window_x", 100))
+            self._window.setProperty("y", self.config.get("window_y", 100))
+            self._window.setProperty("width", self.config.get("window_width", 400))
+        self.currentStepIndexChanged.emit()
+        self.actTitleChanged.emit()
+        self.actInfoChanged.emit()
+        self.windowPosChanged.emit()
+        self.windowSizeChanged.emit()
+        self.opacityChanged.emit()
+        self.baseFontSizeChanged.emit()
+        self.characterListChanged.emit()
+        self.update_substeps()
+
+    @pyqtSlot(str)
+    def addCharacter(self, name):
+        name = name.strip()
+        if not name:
+            return
+        add_character(self.char_data, name)
+        save_characters(self.char_data)
+        self.characterListChanged.emit()
+
+    @pyqtSlot(str)
+    def deleteCharacter(self, name):
+        chars = self.char_data.get("characters", {})
+        if len(chars) <= 1:
+            return
+        active = self.char_data.get("active")
+        delete_character(self.char_data, name)
+        save_characters(self.char_data)
+        if name == active:
+            new_active = self.char_data.get("active")
+            self.config = self.char_data["characters"][new_active]
+            self.completed_data = self.config.get("completed_data", {})
+            self.auto_completed_steps = set(int(k) for k in self.completed_data.keys())
+            self.highwater_mark = self.config.get("highwater_mark", 0)
+            self._html_cache = {}
+            self.currentStepIndexChanged.emit()
+            self.actTitleChanged.emit()
+            self.actInfoChanged.emit()
+            self.windowPosChanged.emit()
+            self.windowSizeChanged.emit()
+            self.opacityChanged.emit()
+            self.baseFontSizeChanged.emit()
+            self.update_substeps()
+        self.characterListChanged.emit()
+
+    # ── Update checker ────────────────────────────────────────────────
+
+    @pyqtProperty(bool, notify=updateAvailable)
+    def showUpdateBar(self):
+        return self._show_update_bar
+
+    @pyqtProperty(str, notify=updateAvailable)
+    def updateText(self):
+        return f"v{self._update_current} → v{self._update_latest} available"
+
+    @pyqtSlot(str, str)
+    def setUpdateAvailable(self, current, latest):
+        self._update_current = current
+        self._update_latest = latest
+        self._show_update_bar = True
+        self.updateAvailable.emit()
+        self.recalculate_height()
+
+    @pyqtSlot()
+    def dismissUpdate(self):
+        self._show_update_bar = False
+        self.updateAvailable.emit()
+        self.recalculate_height()
+
+    @pyqtSlot()
+    def openGithub(self):
+        import subprocess
+        subprocess.Popen(["xdg-open",
+            "https://github.com/dominikzone/Tuxile-ActRunner/releases/latest"])
+
 
 class PoEApp:
     def __init__(self):
@@ -420,8 +549,21 @@ class PoEApp:
         )
         if font_id == -1:
             print("Font not found locally — will use system fallback")
-        self.config = load_config()
-        self.bridge = OverlayBridge(self.config)
+        self.global_config = load_config()
+
+        # Load characters; migrate from config.json on first run
+        char_file_exists = os.path.exists(CHARACTERS_FILE)
+        self.char_data = load_characters()
+        if not char_file_exists:
+            active = self.char_data["active"]
+            char_cfg = self.char_data["characters"][active]
+            for key in ["current_step", "completed_data", "highwater_mark",
+                        "opacity", "base_font_size", "window_x", "window_y", "window_width"]:
+                if key in self.global_config:
+                    char_cfg[key] = self.global_config[key]
+            save_characters(self.char_data)
+
+        self.bridge = OverlayBridge(self.char_data, self.global_config)
 
         self.engine = QQmlApplicationEngine()
         self.engine.rootContext().setContextProperty("bridge", self.bridge)
@@ -437,9 +579,9 @@ class PoEApp:
         root.xChanged.connect(self.bridge._on_window_moved)
         root.yChanged.connect(self.bridge._on_window_moved)
         root.widthChanged.connect(self._save_window_size)
-        root.setProperty("width", self.config.get("window_width", 400))
-        root.setProperty("x", self.config.get("window_x", 100))
-        root.setProperty("y", self.config.get("window_y", 100))
+        root.setProperty("width", self.bridge.config.get("window_width", 400))
+        root.setProperty("x", self.bridge.config.get("window_x", 100))
+        root.setProperty("y", self.bridge.config.get("window_y", 100))
         root.requestActivate()
         root.raise_()
 
@@ -449,36 +591,36 @@ class PoEApp:
         self.app.aboutToQuit.connect(self.cleanup)
         poe_path = _read_poe_path()
         if poe_path:
-            self.config["client_txt_path"] = poe_path
+            self.global_config["client_txt_path"] = poe_path
         self.setup_log_watcher()
         QTimer.singleShot(0, self.scan_log_history)
+        QTimer.singleShot(3000, self.check_for_updates)
 
     def setup_log_watcher(self):
-        path = self.config.get("client_txt_path", "")
+        path = self.global_config.get("client_txt_path", "")
         if not path or not os.path.exists(path):
-            return  # path not set or missing — overlay warning handles user communication
-        if path and os.path.exists(path):
-            boss_names = set()
-            for step in WALKTHROUGH:
-                text = step.get("text", "")
-                boss_matches = re.findall(r"Kill ([A-Za-z][a-zA-Z' -]+?)(?:\.|,| for |\[SKILL\]|\n)", text)
-                for boss in boss_matches:
-                    if (boss.strip().lower() not in
-                            ["hillock", "crab", "spider", "guards", "general",
-                             "overseer", "puppet mistress"]
-                            and len(boss.strip()) > 2):
-                        boss_names.add(boss.strip())
-            self.watcher = LogWatcher(path, list(boss_names))
-            self.watcher.zone_changed.connect(self.on_zone_changed)
-            self.watcher.waypoint_discovered.connect(self.on_waypoint_discovered)
-            self.watcher.quest_item_found.connect(self.on_quest_item_found)
-            self.watcher.quest_completed.connect(self.on_quest_completed)
-            self.watcher.boss_slain.connect(self.on_boss_slain)
-            self.watcher.trial_completed.connect(self.on_trial_completed)
-            self.watcher.start()
+            return
+        boss_names = set()
+        for step in WALKTHROUGH:
+            text = step.get("text", "")
+            boss_matches = re.findall(r"Kill ([A-Za-z][a-zA-Z' -]+?)(?:\.|,| for |\[SKILL\]|\n)", text)
+            for boss in boss_matches:
+                if (boss.strip().lower() not in
+                        ["hillock", "crab", "spider", "guards", "general",
+                         "overseer", "puppet mistress"]
+                        and len(boss.strip()) > 2):
+                    boss_names.add(boss.strip())
+        self.watcher = LogWatcher(path, list(boss_names))
+        self.watcher.zone_changed.connect(self.on_zone_changed)
+        self.watcher.waypoint_discovered.connect(self.on_waypoint_discovered)
+        self.watcher.quest_item_found.connect(self.on_quest_item_found)
+        self.watcher.quest_completed.connect(self.on_quest_completed)
+        self.watcher.boss_slain.connect(self.on_boss_slain)
+        self.watcher.trial_completed.connect(self.on_trial_completed)
+        self.watcher.start()
 
     def scan_log_history(self):
-        path = self.config.get("client_txt_path")
+        path = self.global_config.get("client_txt_path")
         if not path or not os.path.exists(path): return
         try:
             file_size = os.path.getsize(path)
@@ -498,8 +640,24 @@ class PoEApp:
     def _save_window_size(self):
         w = self.bridge._window
         if w:
-            self.config["window_width"]  = w.width()
+            self.bridge.config["window_width"] = w.width()
             self.bridge.request_save()
+
+    def check_for_updates(self):
+        try:
+            import urllib.request
+            import json
+            url = "https://api.github.com/repos/dominikzone/Tuxile-ActRunner/releases/latest"
+            req = urllib.request.Request(url, headers={"User-Agent": "TuxileActRunner"})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read())
+                latest = data.get("tag_name", "").lstrip("v")
+                current = open(os.path.join(
+                    os.path.dirname(__file__), "version.txt")).read().strip()
+                if latest and latest != current:
+                    self.bridge.setUpdateAvailable(current, latest)
+        except:
+            pass  # silently fail — no internet or no releases yet
 
     def on_zone_changed(self, zone_name):
         self.bridge.currentZone = zone_name
