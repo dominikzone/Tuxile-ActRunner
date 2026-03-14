@@ -45,6 +45,7 @@ class OverlayBridge(QObject):
         self.config = config
         self.completed_data = self.config.get("completed_data", {})
         self.auto_completed_steps = set(int(k) for k in self.completed_data.keys())
+        self.highwater_mark = self.config.get("highwater_mark", 0)
         self._window = None
         self._current_zone = "Waiting..."
         self._substeps = []
@@ -74,6 +75,9 @@ class OverlayBridge(QObject):
     def currentStepIndex(self, value):
         if self.config.get("current_step") != value:
             self.config["current_step"] = value
+            if value > self.highwater_mark:
+                self.highwater_mark = value
+                self.config["highwater_mark"] = value
             self.currentStepIndexChanged.emit()
             self.actTitleChanged.emit()
             self.actInfoChanged.emit()
@@ -345,6 +349,8 @@ class OverlayBridge(QObject):
     @pyqtSlot()
     def resetProgress(self):
         self.config["current_step"] = 0
+        self.highwater_mark = 0
+        self.config["highwater_mark"] = 0
         self.completed_data = {}
         self.config["completed_data"] = {}
         self.auto_completed_steps = set()
@@ -446,6 +452,8 @@ class PoEApp:
         if zone_name in TOWNS: return
         for i, step in enumerate(WALKTHROUGH):
             if step["zone"].lower() == zone_name.lower():
+                if i < self.bridge.highwater_mark:
+                    break  # backtracking into an old zone — ignore
                 if self.bridge.currentStepIndex != i:
                     self.bridge.currentStepIndex = i
                 break
