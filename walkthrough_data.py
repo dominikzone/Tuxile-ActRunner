@@ -16,7 +16,8 @@ ICON_MAPPING = {
 WALKTHROUGH = [
   # ── ACT 1 ──────────────────────────────────────────────────────────────────
   {"zone": "Twilight Strand",
-   "text": "ACT 1\n[ICON:KILL_BOSS]Kill Hillock. 💡 Dodge his swings — spam potions freely, town is right after. [ICON:ENTER_TOWN]Enter Lioneye's Watch."},
+   "text": "ACT 1\n[ICON:KILL_BOSS]Kill Hillock. 💡 Dodge his swings — spam potions freely, town is right after. [ICON:ENTER_TOWN]Enter Lioneye's Watch.",
+   "required": {"boss": "Hillock"}},
 
   {"zone": "Lioneye's Watch",
    "text": "⚠️ Grab skill gem from Tarkleigh before leaving! Shop vendors. [ICON:ENTER_ZONE]Exit north to The Coast."},
@@ -31,7 +32,8 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:ENTER_ZONE]Go to The Coast WP → Tidal Island. Return here after.\n💡 Leave a Town Portal at Flooded Depths entrance, continue to Ledge, return later."},
 
   {"zone": "Tidal Island",
-   "text": "[ICON:KILL_BOSS]Kill Hailrake (chill effects — keep moving). [ICON:TAKE_REWARD]Reward: Quicksilver Flask + Gem.\n💡 Exit to char select after kill to return to town instantly. Collect rewards, WP back."},
+   "text": "[ICON:KILL_BOSS]Kill Hailrake (chill effects — keep moving). [ICON:TAKE_REWARD]Reward: Quicksilver Flask + Gem.\n💡 Exit to char select after kill to return to town instantly. Collect rewards, WP back.",
+   "required": {"boss": "Hailrake"}},
 
   {"zone": "The Flooded Depths",
    "text": "[ICON:KILL_BOSS]Kill Dweller of the Deep. [ICON:TAKE_REWARD]Reward: Passive Skill Point. [ICON:ENTER_ZONE]Back to Submerged Passage → The Ledge."},
@@ -43,13 +45,15 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint (near start). [ICON:ENTER_ZONE]Find wall door at far end → The Lower Prison."},
 
   {"zone": "The Lower Prison",
-   "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:TRIAL]Do Trial of Ascendancy (1/6). [ICON:TAKE_REWARD]Reward: Level 8 Gems (return to town to shop). [ICON:ENTER_ZONE]Proceed to The Upper Prison."},
+   "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:TRIAL]Do Trial of Ascendancy (1/6). [ICON:TAKE_REWARD]Reward: Level 8 Gems (return to town to shop). [ICON:ENTER_ZONE]Proceed to The Upper Prison.",
+   "required": {"trial": True}},
 
   {"zone": "The Upper Prison",
    "text": "💡 Strongbox hidden behind wall — find SWITCH on nearby pillar to open it. [ICON:ENTER_ZONE]Find entrance to The Warden's Quarters."},
 
   {"zone": "The Warden's Quarters",
-   "text": "[ICON:KILL_BOSS]Kill Brutus (sustain with potions — he doesn't fully respawn on death). [ICON:TAKE_REWARD]Reward: Level 10 Gems. [ICON:ENTER_ZONE]Go to Prisoner's Gate."},
+   "text": "[ICON:KILL_BOSS]Kill Brutus (sustain with potions — he doesn't fully respawn on death). [ICON:TAKE_REWARD]Reward: Level 10 Gems. [ICON:ENTER_ZONE]Go to Prisoner's Gate.",
+   "required": {"boss": "Brutus"}},
 
   {"zone": "Prisoner's Gate",
    "text": "[ICON:WAYPOINT]Grab Waypoint (zone start). 💡 Main path is blocked by Piety — hug the opposite wall toward the 'deeper' path to find Ship Graveyard. [ICON:ENTER_ZONE]Find The Ship Graveyard."},
@@ -58,16 +62,19 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:ENTER_ZONE]Find Ship Graveyard Cave near a sunken ship in center of zone."},
 
   {"zone": "The Ship Graveyard Cave",
-   "text": "[ICON:KILL_BOSS]Kill Stranglecharm. [ICON:COLLECT_ITEM]Grab Allflame quest item. [ICON:ENTER_ZONE]Exit through wall behind boss → back to Ship Graveyard."},
+   "text": "[ICON:KILL_BOSS]Kill Stranglecharm. [ICON:COLLECT_ITEM]Grab Allflame quest item. [ICON:ENTER_ZONE]Exit through wall behind boss → back to Ship Graveyard.",
+   "required": {"quest_item": "Allflame"}},
 
   {"zone": "The Cavern of Wrath",
-   "text": "[ICON:WAYPOINT]Grab Waypoint (zone start). [ICON:KILL_BOSS]Kill Fairgraves. [ICON:TAKE_REWARD]Skill Point (collect in town). [ICON:ENTER_ZONE]Find wall entrance to Cavern of Anger."},
+   "text": "[ICON:WAYPOINT]Grab Waypoint (zone start). [ICON:KILL_BOSS]Kill Fairgraves. [ICON:TAKE_REWARD]Skill Point (collect in town). [ICON:ENTER_ZONE]Find wall entrance to Cavern of Anger.",
+   "required": {"boss": "Fairgraves"}},
 
   {"zone": "The Cavern of Anger",
    "text": "[ICON:ENTER_ZONE]Follow path to wall entrance → Merveil's Lair."},
 
   {"zone": "Merveil's Lair",
-   "text": "[ICON:KILL_BOSS]Kill Merveil — heavy cold damage. ⚠️ Avoid large cyclones, kill minions immediately, stay mobile — multiple phases. [ICON:ENTER_ZONE]Exit north → Act 2."},
+   "text": "[ICON:KILL_BOSS]Kill Merveil — heavy cold damage. ⚠️ Avoid large cyclones, kill minions immediately, stay mobile — multiple phases. [ICON:ENTER_ZONE]Exit north → Act 2.",
+   "required": {"boss": "Merveil"}},
 
   # ── ACT 2 ──────────────────────────────────────────────────────────────────
   {"zone": "The Southern Forest",
@@ -86,7 +93,8 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint (center). [ICON:ENTER_ZONE]Find staircase to Level 2."},
 
   {"zone": "The Chamber of Sins Level 2",
-   "text": "[ICON:TRIAL]Do Trial of Ascendancy (2/6) — opposite side from boss. [ICON:KILL_BOSS]Kill Fidelitas. [ICON:COLLECT_ITEM]Pick up Baleful Gem. [ICON:ENTER_TOWN]Return to town. [ICON:ENTER_ZONE]Crossroads NORTHEAST → Broken Bridge."},
+   "text": "[ICON:TRIAL]Do Trial of Ascendancy (2/6) — opposite side from boss. [ICON:KILL_BOSS]Kill Fidelitas. [ICON:COLLECT_ITEM]Pick up Baleful Gem. [ICON:ENTER_TOWN]Return to town. [ICON:ENTER_ZONE]Crossroads NORTHEAST → Broken Bridge.",
+   "required": {"quest_item": "Baleful Gem", "boss": "Fidelitas", "trial": True}},
 
   {"zone": "The Broken Bridge",
    "text": "[ICON:KILL_BOSS]Kill/Help Kraityn. ⚠️ Pick up Kraityn's Amulet! [ICON:ENTER_ZONE]Return to Crossroads → SOUTHEAST → Fellshrine Ruins."},
@@ -95,22 +103,26 @@ WALKTHROUGH = [
    "text": "[ICON:ENTER_ZONE]Stay on path, ignore distractions. Follow to graveyard archway → angle north → The Crypt."},
 
   {"zone": "The Crypt Level 1",
-   "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:TRIAL]Do Trial of Ascendancy (3/6). [ICON:ENTER_ZONE]Proceed to Level 2."},
+   "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:TRIAL]Do Trial of Ascendancy (3/6). [ICON:ENTER_ZONE]Proceed to Level 2.",
+   "required": {"trial": True}},
 
   {"zone": "The Crypt Level 2",
-   "text": "[ICON:KILL_BOSS]Kill Archbishop Geofri. [ICON:COLLECT_ITEM]Grab Golden Hand from altar behind him. [ICON:TAKE_REWARD]Skill Point (turn in at town). [ICON:ENTER_ZONE]Head to Riverways."},
+   "text": "[ICON:KILL_BOSS]Kill Archbishop Geofri. [ICON:COLLECT_ITEM]Grab Golden Hand from altar behind him. [ICON:TAKE_REWARD]Skill Point (turn in at town). [ICON:ENTER_ZONE]Head to Riverways.",
+   "required": {"quest_item": "Golden Hand"}},
 
   {"zone": "The Riverways",
    "text": "[ICON:WAYPOINT]Grab Waypoint (middle). Note side path to Wetlands — return here later. [ICON:ENTER_ZONE]Continue main path to The Western Forest."},
 
   {"zone": "The Western Forest",
-   "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:KILL_BOSS]Kill Captain Ateri → socket Thaumetic Emblem in wall behind camp. [ICON:TAKE_REWARD]Skill Point (redeem at Act 1 Lioneye's Watch!). [ICON:KILL_BOSS]Kill/Help Alira (follow torches off main path). ⚠️ Grab Alira's Amulet! [ICON:ENTER_ZONE]Find Weaver's Chambers on opposite wall."},
+   "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:KILL_BOSS]Kill Captain Ateri → socket Thaumetic Emblem in wall behind camp. [ICON:TAKE_REWARD]Skill Point (redeem at Act 1 Lioneye's Watch!). [ICON:KILL_BOSS]Kill/Help Alira (follow torches off main path). ⚠️ Grab Alira's Amulet! [ICON:ENTER_ZONE]Find Weaver's Chambers on opposite wall.",
+   "required": {"quest_item": "Thaumetic Emblem"}},
 
   {"zone": "The Weaver's Chambers",
    "text": "[ICON:ENTER_ZONE]Find The Weaver's Nest inside."},
 
   {"zone": "The Weaver's Nest",
-   "text": "[ICON:KILL_BOSS]Kill The Weaver. [ICON:COLLECT_ITEM]Grab Maligaro's Spike. [ICON:ENTER_TOWN]Return to town. [ICON:ENTER_ZONE]Riverways → north → The Wetlands."},
+   "text": "[ICON:KILL_BOSS]Kill The Weaver. [ICON:COLLECT_ITEM]Grab Maligaro's Spike. [ICON:ENTER_TOWN]Return to town. [ICON:ENTER_ZONE]Riverways → north → The Wetlands.",
+   "required": {"quest_item": "Maligaro's Spike", "boss": "The Weaver"}},
 
   {"zone": "The Wetlands",
    "text": "[ICON:WAYPOINT]Grab Waypoint (north, near Oak's Camp). [ICON:KILL_BOSS]Kill/Help Oak. ⚠️ Grab Oak's Amulet! [ICON:ENTER_ZONE]Find Vaal Ruins wall entrance near Waypoint."},
@@ -125,7 +137,8 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint. ⚠️ Locked Door needs Apex item — turn in all 3 bandit amulets at town first! [ICON:ENTER_ZONE]Head to Ancient Pyramid."},
 
   {"zone": "The Ancient Pyramid",
-   "text": "[ICON:KILL_BOSS]Kill Vaal Oversoul — click altar to spawn (multiple phases, OST is great 😄). [ICON:ENTER_ZONE]Exit north → Act 3."},
+   "text": "[ICON:KILL_BOSS]Kill Vaal Oversoul — click altar to spawn (multiple phases, OST is great 😄). [ICON:ENTER_ZONE]Exit north → Act 3.",
+   "required": {"boss": "Vaal Oversoul"}},
 
   # ── ACT 3 ──────────────────────────────────────────────────────────────────
   {"zone": "The City of Sarn",
@@ -138,7 +151,8 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint if visible. Note locked Sewers gate. [ICON:ENTER_ZONE]Find The Crematorium."},
 
   {"zone": "The Crematorium",
-   "text": "[ICON:TRIAL]Do Trial of Ascendancy (4/6). [ICON:KILL_BOSS]Kill Piety. [ICON:COLLECT_ITEM]Pick up Tolman's Bracelet. [ICON:ENTER_TOWN]Return to town → get Sewer Keys from Clarissa. [ICON:OPEN_PASSAGE]Use keys to unlock Sewers gate in The Slums."},
+   "text": "[ICON:TRIAL]Do Trial of Ascendancy (4/6). [ICON:KILL_BOSS]Kill Piety. [ICON:COLLECT_ITEM]Pick up Tolman's Bracelet. [ICON:ENTER_TOWN]Return to town → get Sewer Keys from Clarissa. [ICON:OPEN_PASSAGE]Use keys to unlock Sewers gate in The Slums.",
+   "required": {"trial": True}},
 
   {"zone": "The Sewers",
    "text": "[ICON:COLLECT_ITEM]Find 3x Bust stashes — Victario's Secrets. [ICON:TAKE_REWARD]Skill Point. [ICON:WAYPOINT]Grab Waypoint near Undying Blockage (remember location). Skip Sister Cassia. [ICON:ENTER_ZONE]Find Marketplace wall entrance at back of zone."},
@@ -147,19 +161,22 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint (near large statues). [ICON:TRIAL]Enter Catacombs nearby for Trial (5/6). ⚠️ Ignore the Ornate Chest. [ICON:ENTER_ZONE]Head north, hug top wall west → The Battlefront."},
 
   {"zone": "The Catacombs",
-   "text": "[ICON:TRIAL]Do Trial of Ascendancy (5/6). Grab Recipe Altar. [ICON:ENTER_ZONE]Return to Marketplace."},
+   "text": "[ICON:TRIAL]Do Trial of Ascendancy (5/6). Grab Recipe Altar. [ICON:ENTER_ZONE]Return to Marketplace.",
+   "required": {"trial": True}},
 
   {"zone": "The Battlefront",
    "text": "[ICON:WAYPOINT]Grab Waypoint (north). [ICON:COLLECT_ITEM]Find Blackguard Chest near WP (usually SW) — grab Ribbon Spool. [ICON:ENTER_ZONE]Head west then north → The Docks."},
 
   {"zone": "The Docks",
-   "text": "[ICON:COLLECT_ITEM]Find Supply Container on a dock — grab Thaumetic Sulphite. [ICON:ENTER_ZONE]Return to Battlefront → northeast → The Solaris Temple."},
+   "text": "[ICON:COLLECT_ITEM]Find Supply Container on a dock — grab Thaumetic Sulphite. [ICON:ENTER_ZONE]Return to Battlefront → northeast → The Solaris Temple.",
+   "required": {"quest_item": "Thaumetic Sulphite"}},
 
   {"zone": "The Solaris Temple Level 1",
    "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:ENTER_ZONE]Proceed to Level 2."},
 
   {"zone": "The Solaris Temple Level 2",
-   "text": "⚠️ Need Ribbon Spool AND Thaumetic Sulphite! [ICON:COLLECT_ITEM]Talk to Lady Dialla → get Infernal Talc. [ICON:ENTER_ZONE]Go to Sewers WP → burn Undying Blockage → The Ebony Barracks."},
+   "text": "⚠️ Need Ribbon Spool AND Thaumetic Sulphite! [ICON:COLLECT_ITEM]Talk to Lady Dialla → get Infernal Talc. [ICON:ENTER_ZONE]Go to Sewers WP → burn Undying Blockage → The Ebony Barracks.",
+   "required": {"quest_item": "Infernal Talc"}},
 
   {"zone": "The Ebony Barracks",
    "text": "[ICON:WAYPOINT]Grab Waypoint (north, near entrance). [ICON:KILL_BOSS]Kill General Gravicius. [ICON:ENTER_ZONE]Head NORTHWEST → The Lunaris Temple."},
@@ -168,10 +185,12 @@ WALKTHROUGH = [
    "text": "[ICON:ENTER_ZONE]Follow carpets to Waypoint and staircase → Level 2."},
 
   {"zone": "The Lunaris Temple Level 2",
-   "text": "💡 Carts: 1 cart = correct path. 2 carts = wrong. Use blink in cage labyrinth. [ICON:KILL_BOSS]Kill Piety. [ICON:COLLECT_ITEM]Get Tower Key. [ICON:TAKE_REWARD]Skill Point from Grigor in town. [ICON:ENTER_ZONE]Return to Ebony Barracks → EAST → Imperial Gardens."},
+   "text": "💡 Carts: 1 cart = correct path. 2 carts = wrong. Use blink in cage labyrinth. [ICON:KILL_BOSS]Kill Piety. [ICON:COLLECT_ITEM]Get Tower Key. [ICON:TAKE_REWARD]Skill Point from Grigor in town. [ICON:ENTER_ZONE]Return to Ebony Barracks → EAST → Imperial Gardens.",
+   "required": {"boss": "Piety"}},
 
   {"zone": "The Imperial Gardens",
-   "text": "[ICON:WAYPOINT]Grab Waypoint. Order: 1. NORTHWEST → The Library. 2. NORTHEAST → Trial (6/6) then Ascend! 3. EAST → Sceptre of God."},
+   "text": "[ICON:WAYPOINT]Grab Waypoint. Order: 1. NORTHWEST → The Library. 2. NORTHEAST → Trial (6/6) then Ascend! 3. EAST → Sceptre of God.",
+   "required": {"trial": True}},
 
   {"zone": "The Library",
    "text": "[ICON:COLLECT_ITEM]Find Siosa. [ICON:OPEN_PASSAGE]Find Loose Candle → opens The Archives."},
@@ -193,13 +212,15 @@ WALKTHROUGH = [
    "text": "[ICON:ENTER_ZONE]Exit SOUTHWEST to The Dried Lake."},
 
   {"zone": "The Dried Lake",
-   "text": "[ICON:KILL_BOSS]Kill Voll (head south and west to his camp). [ICON:COLLECT_ITEM]Grab Deshret's Banner. [ICON:ENTER_TOWN]Return to town → click Deshret's Seal north of town → opens The Mines."},
+   "text": "[ICON:KILL_BOSS]Kill Voll (head south and west to his camp). [ICON:COLLECT_ITEM]Grab Deshret's Banner. [ICON:ENTER_TOWN]Return to town → click Deshret's Seal north of town → opens The Mines.",
+   "required": {"quest_item": "Deshret's Banner"}},
 
   {"zone": "The Mines Level 1",
    "text": "[ICON:COLLECT_ITEM]Grab Recipe Altar along main path. Ignore Sulphite/Niko (league content). [ICON:ENTER_ZONE]Proceed to Level 2."},
 
   {"zone": "The Mines Level 2",
-   "text": "[ICON:COLLECT_ITEM]Follow cart tracks to Deshret's Spirit ❗. [ICON:KILL_BOSS]Kill Hammerstorm. [ICON:TAKE_REWARD]Click Spirit — Skill Point. [ICON:ENTER_ZONE]Continue to Crystal Veins."},
+   "text": "[ICON:COLLECT_ITEM]Follow cart tracks to Deshret's Spirit ❗. [ICON:KILL_BOSS]Kill Hammerstorm. [ICON:TAKE_REWARD]Click Spirit — Skill Point. [ICON:ENTER_ZONE]Continue to Crystal Veins.",
+   "required": {"quest_item": "Deshret's Spirit"}},
 
   {"zone": "The Crystal Veins",
    "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:COLLECT_ITEM]Talk to Lady Dialla. [ICON:ENTER_ZONE]Complete Kaom's Dream AND Daresso's Dream (either order)."},
@@ -208,13 +229,15 @@ WALKTHROUGH = [
    "text": "[ICON:ENTER_ZONE]Go ALL WAY RIGHT from start → up stairs → ALL WAY LEFT → north to Kaom's Stronghold."},
 
   {"zone": "Kaom's Stronghold",
-   "text": "[ICON:WAYPOINT]Grab Waypoint + Crafting Altar at start. Hug left wall north. [ICON:KILL_BOSS]Kill Kaom (dodge telegraphed moves — easy fight). [ICON:COLLECT_ITEM]Grab Eye of Fury. [ICON:ENTER_ZONE]Return to Crystal Veins."},
+   "text": "[ICON:WAYPOINT]Grab Waypoint + Crafting Altar at start. Hug left wall north. [ICON:KILL_BOSS]Kill Kaom (dodge telegraphed moves — easy fight). [ICON:COLLECT_ITEM]Grab Eye of Fury. [ICON:ENTER_ZONE]Return to Crystal Veins.",
+   "required": {"quest_item": "Eye of Fury"}},
 
   {"zone": "Daresso's Dream",
    "text": "[ICON:ENTER_ZONE]Follow narrow alleyways. Some rooms gate you until all enemies dead. [ICON:KILL_BOSS]Kill Barkhul in arena. [ICON:ENTER_ZONE]Proceed to The Grand Arena."},
 
   {"zone": "The Grand Arena",
-   "text": "[ICON:WAYPOINT]Grab Waypoint + Crafting Altar. Exit always at NORTH end — alternate Passageways and Arenas. [ICON:KILL_BOSS]Kill Daresso (4 phases — hardest is last). [ICON:COLLECT_ITEM]Grab Eye of Desire. [ICON:ENTER_ZONE]Return to Dialla → she opens Belly of the Beast."},
+   "text": "[ICON:WAYPOINT]Grab Waypoint + Crafting Altar. Exit always at NORTH end — alternate Passageways and Arenas. [ICON:KILL_BOSS]Kill Daresso (4 phases — hardest is last). [ICON:COLLECT_ITEM]Grab Eye of Desire. [ICON:ENTER_ZONE]Return to Dialla → she opens Belly of the Beast.",
+   "required": {"quest_item": "Eye of Desire"}},
 
   {"zone": "The Belly of the Beast Level 1",
    "text": "⚠️ Stock up — long zone chain begins here! [ICON:ENTER_ZONE]Head north-center to Level 2."},
@@ -226,7 +249,8 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint. Loop entire zone for 3 bosses: [ICON:KILL_BOSS]Kill Shavronne → Malachai's Entrails. [ICON:KILL_BOSS]Kill Doedre → Malachai's Lungs. [ICON:KILL_BOSS]Kill Maligaro → Malachai's Heart. [ICON:TAKE_REWARD]Return all 3 to Piety at WP → opens Black Core."},
 
   {"zone": "The Black Core",
-   "text": "[ICON:KILL_BOSS]Kill Malachai. 💡 Big AoE: move BEHIND him. Phase 2: kill Hearts in arena corners at each 25% threshold. [ICON:ENTER_ZONE]Use red portal → Highgate. Collect gem reward from Dialla → top-right wall exit → Act 5."},
+   "text": "[ICON:KILL_BOSS]Kill Malachai. 💡 Big AoE: move BEHIND him. Phase 2: kill Hearts in arena corners at each 25% threshold. [ICON:ENTER_ZONE]Use red portal → Highgate. Collect gem reward from Dialla → top-right wall exit → Act 5.",
+   "required": {"boss": "Malachai"}},
 
   # ── ACT 5 ──────────────────────────────────────────────────────────────────
   {"zone": "The Ascent",
@@ -260,10 +284,12 @@ WALKTHROUGH = [
    "text": "[ICON:COLLECT_ITEM]Clockwise loop — find Sign of Purity from Tomb of First Templar. Grab Crafting Altar. [ICON:ENTER_ZONE]Return to Ruined Square."},
 
   {"zone": "The Reliquary",
-   "text": "[ICON:COLLECT_ITEM]Explore all corners — find 3x Torments: Hinekora's Hair, Tukohama's Tooth, Valako's Jaw. [ICON:TAKE_REWARD]Skill Point. [ICON:ENTER_ZONE]Return to town to collect Skill Books."},
+   "text": "[ICON:COLLECT_ITEM]Explore all corners — find 3x Torments: Hinekora's Hair, Tukohama's Tooth, Valako's Jaw. [ICON:TAKE_REWARD]Skill Point. [ICON:ENTER_ZONE]Return to town to collect Skill Books.",
+   "required": {"quest_item": "Kitava's Torments"}},
 
   {"zone": "The Cathedral Rooftop",
-   "text": "[ICON:ENTER_ZONE]Turn LEFT, head north all the way to NORTHWEST corner → Cathedral Apex. [ICON:KILL_BOSS]Kill Kitava — (-30% All Resistances!). 💡 Death respawns you at entrance — just keep going. [ICON:ENTER_ZONE]Speak to Lilly Roth → Sail to Wraeclast → Act 6."},
+   "text": "[ICON:ENTER_ZONE]Turn LEFT, head north all the way to NORTHWEST corner → Cathedral Apex. [ICON:KILL_BOSS]Kill Kitava — (-30% All Resistances!). 💡 Death respawns you at entrance — just keep going. [ICON:ENTER_ZONE]Speak to Lilly Roth → Sail to Wraeclast → Act 6.",
+   "required": {"boss": "Kitava"}},
 
   # ── ACT 6 ──────────────────────────────────────────────────────────────────
   {"zone": "The Twilight Strand",
@@ -312,7 +338,8 @@ WALKTHROUGH = [
    "text": "[ICON:ENTER_ZONE]Follow shoreline as it wraps up the map. [ICON:OPEN_PASSAGE]Activate 2 circular platforms — stand inside each until column fully retracts. [ICON:TAKE_REWARD]Find final ❗ → light the Beacon. [ICON:COLLECT_ITEM]Talk to Weylam Roth → sail to Brine King's Reef."},
 
   {"zone": "The Brine King's Reef",
-   "text": "[ICON:ENTER_ZONE]Stay on border/wall — find The Brine King's Throne entrance. [ICON:KILL_BOSS]Kill The Brine King. 💡 Stay BEHIND him. ⚠️ Don't enter ocean walls, dodge small white whirlpools (hard to see)! [ICON:COLLECT_ITEM]Speak to Sin. Sail to Bridge Encampment → Act 7."},
+   "text": "[ICON:ENTER_ZONE]Stay on border/wall — find The Brine King's Throne entrance. [ICON:KILL_BOSS]Kill The Brine King. 💡 Stay BEHIND him. ⚠️ Don't enter ocean walls, dodge small white whirlpools (hard to see)! [ICON:COLLECT_ITEM]Speak to Sin. Sail to Bridge Encampment → Act 7.",
+   "required": {"boss": "Brine King"}},
 
   # ── ACT 7 ──────────────────────────────────────────────────────────────────
   {"zone": "The Bridge Encampment",
@@ -423,7 +450,8 @@ WALKTHROUGH = [
    "text": "[ICON:ENTER_ZONE]Three zones: head EAST+slightly NORTH to Supply Hoist each time. Ignore Jun's doorways (league content). 3rd zone has entrance to Vastiri Desert."},
 
   {"zone": "The Vastiri Desert",
-   "text": "[ICON:COLLECT_ITEM]Find Storm-Weathered Chest ❗ (central) → defeat mummies → grab Storm Blade. [ICON:WAYPOINT]Grab Waypoint. [ICON:ENTER_TOWN]Town Portal → talk to Petarus+Vanja → get Bottled Storm. Return → [ICON:OPEN_PASSAGE]open blocked entrance EAST → The Oasis. Find Foothills entrance after Oasis."},
+   "text": "[ICON:COLLECT_ITEM]Find Storm-Weathered Chest ❗ (central) → defeat mummies → grab Storm Blade. [ICON:WAYPOINT]Grab Waypoint. [ICON:ENTER_TOWN]Town Portal → talk to Petarus+Vanja → get Bottled Storm. Return → [ICON:OPEN_PASSAGE]open blocked entrance EAST → The Oasis. Find Foothills entrance after Oasis.",
+   "required": {"quest_item": "Storm Blade"}},
 
   {"zone": "The Oasis",
    "text": "[ICON:KILL_BOSS]Kill Shakari. 💡 At ~60%: she burrows — follow SLOWLY and incrementally, don't run ahead or she won't follow. Final arena at end of path. [ICON:TAKE_REWARD]Skill Point. [ICON:ENTER_ZONE]Return to Vastiri Desert → find The Foothills."},
@@ -432,7 +460,8 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint (north). [ICON:ENTER_ZONE]Continue NORTH → Boiling Lake. Return WP → search opposite walls → The Tunnel."},
 
   {"zone": "The Boiling Lake",
-   "text": "[ICON:KILL_BOSS]Kill The Basilisk (head NORTH+slightly EAST — stand behind him, very easy). [ICON:COLLECT_ITEM]Grab Basilisk Acid. [ICON:ENTER_ZONE]Return to Foothills → find The Tunnel."},
+   "text": "[ICON:KILL_BOSS]Kill The Basilisk (head NORTH+slightly EAST — stand behind him, very easy). [ICON:COLLECT_ITEM]Grab Basilisk Acid. [ICON:ENTER_ZONE]Return to Foothills → find The Tunnel.",
+   "required": {"quest_item": "Basilisk Acid"}},
 
   {"zone": "The Tunnel",
    "text": "[ICON:TRIAL]Do Trial (5/6 Cruel) — usually near entrance. [ICON:WAYPOINT]Grab Waypoint. [ICON:ENTER_ZONE]Proceed to The Quarry."},
@@ -450,7 +479,8 @@ WALKTHROUGH = [
    "text": "[ICON:ENTER_ZONE]Head toward UPPER-MIDDLE TOP of zone. ⚠️ Watch for random Corrupted Blood stacks! [ICON:ENTER_ZONE]Find entrance to The Rotting Core."},
 
   {"zone": "The Rotting Core",
-   "text": "[ICON:KILL_BOSS]Kill The Trinity — Doedre+Maligaro+Shavronne across 3 domains, then all three together. [ICON:COLLECT_ITEM]Speak to Lilly Roth → travel to Oriath Docks → Act 10."},
+   "text": "[ICON:KILL_BOSS]Kill The Trinity — Doedre+Maligaro+Shavronne across 3 domains, then all three together. [ICON:COLLECT_ITEM]Speak to Lilly Roth → travel to Oriath Docks → Act 10.",
+   "required": {"boss": "Trinity"}},
 
   # ── ACT 10 ─────────────────────────────────────────────────────────────────
   {"zone": "Oriath Docks",
@@ -478,7 +508,8 @@ WALKTHROUGH = [
    "text": "[ICON:ENTER_ZONE]Head WEST+NORTH to zone tip → The Feeding Trough."},
 
   {"zone": "The Feeding Trough",
-   "text": "⚠️ DO MERCILESS LAB BEFORE THIS BOSS! [ICON:ENTER_ZONE]Head WEST+NORTH to tip. Grab Crafting Altar. Talk to Sin. [ICON:KILL_BOSS]Kill Kitava. [ICON:COLLECT_ITEM]Speak to Sin → portal to Oriath Docks → sail to Karui Shores."},
+   "text": "⚠️ DO MERCILESS LAB BEFORE THIS BOSS! [ICON:ENTER_ZONE]Head WEST+NORTH to tip. Grab Crafting Altar. Talk to Sin. [ICON:KILL_BOSS]Kill Kitava. [ICON:COLLECT_ITEM]Speak to Sin → portal to Oriath Docks → sail to Karui Shores.",
+   "required": {"boss": "Kitava"}},
 
   # ── EPILOGUE ────────────────────────────────────────────────────────────────
   {"zone": "Karui Shores",

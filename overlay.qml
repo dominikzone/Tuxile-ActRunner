@@ -511,6 +511,14 @@ Window {
                         font.letterSpacing: 1
                     }
 
+                    Text {
+                        visible: bridge && !bridge.stepRequirementMet
+                        text: "⏳"
+                        font.pixelSize: 9
+                        color: neonYellow
+                        leftPadding: 3
+                    }
+
                     Item { Layout.fillWidth: true }
 
                     Text {

@@ -92,6 +92,7 @@ class OverlayBridge(QObject):
         self._update_current = ""
         self._update_latest = ""
         self._show_update_bar = False
+        self._fulfilled = set()
         self.update_substeps()
 
         self.save_timer = QTimer()
@@ -127,6 +128,7 @@ class OverlayBridge(QObject):
             if value > self.highwater_mark:
                 self.highwater_mark = value
                 self.config["highwater_mark"] = value
+            self._fulfilled = set()
             self.currentStepIndexChanged.emit()
             self.actTitleChanged.emit()
             self.actInfoChanged.emit()
@@ -148,6 +150,40 @@ class OverlayBridge(QObject):
         if self._current_zone != value:
             self._current_zone = value
             self.currentZoneChanged.emit()
+
+    # ── Requirement tracking ──────────────────────────────────────────
+
+    def mark_fulfilled(self, req_type, value=""):
+        key = f"{req_type}:{value.lower().strip()}"
+        self._fulfilled.add(key)
+
+    def is_step_requirement_met(self, step_idx):
+        if step_idx < 0 or step_idx >= len(WALKTHROUGH):
+            return True
+        req = WALKTHROUGH[step_idx].get("required")
+        if not req:
+            return True
+        if req.get("quest_item"):
+            key = f"quest_item:{req['quest_item'].lower().strip()}"
+            if key not in self._fulfilled:
+                return False
+        if req.get("boss"):
+            key = f"boss:{req['boss'].lower().strip()}"
+            if key not in self._fulfilled:
+                return False
+        if req.get("trial"):
+            key = f"trial:{step_idx}"
+            if key not in self._fulfilled:
+                return False
+        if req.get("waypoint"):
+            key = f"waypoint:{step_idx}"
+            if key not in self._fulfilled:
+                return False
+        return True
+
+    @pyqtProperty(bool, notify=substepsChanged)
+    def stepRequirementMet(self):
+        return self.is_step_requirement_met(self.currentStepIndex)
 
     # ── Act title (legacy) ────────────────────────────────────────────
 
@@ -424,6 +460,7 @@ class OverlayBridge(QObject):
         self.completed_data = {}
         self.config["completed_data"] = {}
         self.auto_completed_steps = set()
+        self._fulfilled = set()
         self.request_save()
         self.currentStepIndexChanged.emit()
         self.actTitleChanged.emit()
@@ -671,6 +708,9 @@ class PoEApp:
                     self.bridge.mark_substep_completed(i, auto=True)
                     break
         if zone_name in TOWNS: return
+        current_idx = self.bridge.currentStepIndex
+        if not self.bridge.is_step_requirement_met(current_idx):
+            return
         for i, step in enumerate(WALKTHROUGH):
             if step["zone"].lower() == zone_name.lower():
                 if i < self.bridge.highwater_mark:
@@ -680,19 +720,25 @@ class PoEApp:
                 break
 
     def on_waypoint_discovered(self):
+        idx = self.bridge.currentStepIndex
+        self.bridge.mark_fulfilled("waypoint", str(idx))
         self._check_and_complete("[WP]")
         self._check_and_complete("waypoint")
 
     def on_quest_item_found(self, item_name):
+        self.bridge.mark_fulfilled("quest_item", item_name)
         self._check_and_complete(item_name)
 
     def on_quest_completed(self, quest_name):
         self._check_and_complete(quest_name)
 
     def on_boss_slain(self, boss_name):
+        self.bridge.mark_fulfilled("boss", boss_name)
         self._check_and_complete(boss_name)
 
     def on_trial_completed(self, trial_name):
+        idx = self.bridge.currentStepIndex
+        self.bridge.mark_fulfilled("trial", str(idx))
         self._check_and_complete(trial_name)
         self._check_and_complete("TRIAL")
 
