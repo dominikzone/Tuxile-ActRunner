@@ -171,10 +171,12 @@ class OverlayBridge(QObject):
     # ── Act info ──────────────────────────────────────────────────────
 
     def _get_act_info(self, step_idx):
-        for act_num, start, end in ACT_BOUNDARIES:
-            if start <= step_idx <= end:
-                return act_num, step_idx - start, end - start + 1
-        return (1, step_idx, len(WALKTHROUGH))
+        if 0 <= step_idx < len(WALKTHROUGH):
+            act_num = WALKTHROUGH[step_idx].get("act", 1)
+            act_steps = [i for i, s in enumerate(WALKTHROUGH) if s.get("act", 1) == act_num]
+            act_pos = act_steps.index(step_idx) if step_idx in act_steps else 0
+            return act_num, act_pos, len(act_steps)
+        return (1, 0, len(WALKTHROUGH))
 
     def _step_to_act(self, step_idx):
         for act_num, start, end in ACT_BOUNDARIES:
@@ -733,17 +735,32 @@ class PoEApp:
     def on_zone_changed(self, zone_name):
         self.bridge.currentZone = zone_name
 
+        current_act = WALKTHROUGH[self.bridge.highwater_mark].get("act", 1) \
+            if 0 <= self.bridge.highwater_mark < len(WALKTHROUGH) else 1
+
+        best_match = None
+
         for i, step in enumerate(WALKTHROUGH):
             log_name = step.get("log_zone", step["zone"])
             if log_name.lower() != zone_name.lower():
                 continue
-
             if i < self.bridge.highwater_mark:
                 continue
 
-            if self.bridge.currentStepIndex != i:
-                self.bridge.currentStepIndex = i
+            step_act = step.get("act", 1)
+
+            # Must be same act or next act — never skip ahead more than 1
+            if step_act < current_act:
+                continue
+            if step_act > current_act + 1:
+                continue
+
+            best_match = i
             break
+
+        if best_match is not None:
+            if self.bridge.currentStepIndex != best_match:
+                self.bridge.currentStepIndex = best_match
 
     def on_waypoint_discovered(self): pass
     def on_quest_item_found(self, item_name): pass
