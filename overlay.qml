@@ -458,6 +458,9 @@ Window {
     width: 340
     height: modalBg.implicitHeight
 
+    property string pendingDeleteName: ""
+    property bool confirmVisible: false
+
     // Smart positioning: below main window if space, above otherwise
     x: Math.max(0, Math.min(root.x, Screen.desktopAvailableWidth - 340))
     y: {
@@ -550,6 +553,17 @@ Window {
                                       : (rowHovered ? Qt.rgba(0, 1, 1, 0.1) : "transparent")
                         border.width: 1
 
+                        // Row click — declared first so RowLayout children render above it
+                        MouseArea {
+                            anchors.fill: parent; hoverEnabled: true
+                            cursorShape: modelData.isActive ? Qt.ArrowCursor : Qt.PointingHandCursor
+                            onContainsMouseChanged: charRowRect.rowHovered = containsMouse
+                            onPressed: {
+                                if (!modelData.isActive && !delItem.delHovered)
+                                    bridge.switchCharacter(modelData.name)
+                            }
+                        }
+
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 10; anchors.rightMargin: 8
@@ -601,7 +615,8 @@ Window {
                                 width: delLbl.implicitWidth + 12; height: 22
                                 Layout.alignment: Qt.AlignVCenter
                                 property bool delHovered: false
-                                property bool canDelete: bridge && bridge.characterList.length > 1 && !modelData.isActive
+                                property bool canDelete: bridge && bridge.characterList.length > 1
+                                opacity: bridge && bridge.characterList.length <= 1 ? 0.2 : 1.0
 
                                 Rectangle {
                                     anchors.fill: parent; radius: 2
@@ -619,25 +634,20 @@ Window {
                                     leftPadding: 6; rightPadding: 6
                                 }
                                 MouseArea {
+                                    z: 10
                                     anchors.fill: parent; hoverEnabled: true
+                                    propagateComposedEvents: false
+                                    enabled: delItem.canDelete
                                     cursorShape: delItem.canDelete ? Qt.PointingHandCursor : Qt.ArrowCursor
                                     onContainsMouseChanged: delItem.delHovered = containsMouse
                                     onPressed: (m) => {
                                         m.accepted = true
-                                        if (delItem.canDelete) bridge.deleteCharacter(modelData.name)
+                                        if (delItem.canDelete) {
+                                            profileModal.pendingDeleteName = modelData.name
+                                            profileModal.confirmVisible = true
+                                        }
                                     }
                                 }
-                            }
-                        }
-
-                        // Row click (switch character)
-                        MouseArea {
-                            anchors.fill: parent; hoverEnabled: true
-                            cursorShape: modelData.isActive ? Qt.ArrowCursor : Qt.PointingHandCursor
-                            onContainsMouseChanged: charRowRect.rowHovered = containsMouse
-                            onPressed: {
-                                if (!modelData.isActive && !delItem.delHovered)
-                                    bridge.switchCharacter(modelData.name)
                             }
                         }
                     }
@@ -726,6 +736,106 @@ Window {
                     color: "#4a6a5a"
                     font.family: "Barlow Condensed"; font.pixelSize: 10
                     wrapMode: Text.Wrap; textFormat: Text.RichText
+                }
+            }
+        }
+        // Confirmation overlay
+        Rectangle {
+            anchors.fill: parent
+            visible: profileModal.confirmVisible
+            z: 10
+            color: Qt.rgba(6/255, 6/255, 15/255, 0.9)
+            radius: 6
+
+            Rectangle {
+                id: confirmBox
+                anchors.centerIn: parent
+                width: 260
+                height: confirmCol.implicitHeight + 32
+                color: "#0d0d20"
+                border.color: Qt.rgba(1, 0.27, 0.4, 0.4); border.width: 1
+                radius: 6
+
+                Column {
+                    id: confirmCol
+                    anchors {
+                        top: parent.top; left: parent.left; right: parent.right
+                        topMargin: 16; leftMargin: 16; rightMargin: 16
+                    }
+                    spacing: 8
+
+                    Text {
+                        text: "⚠ DELETE PROFILE?"
+                        color: "#ff4466"
+                        font.family: "Orbitron"; font.pixelSize: 10; font.weight: Font.DemiBold
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+
+                    Rectangle { width: parent.width; height: 1; color: Qt.rgba(1, 0.27, 0.4, 0.2) }
+
+                    Text {
+                        text: profileModal.pendingDeleteName
+                        color: "#e8ffe8"
+                        font.family: "Barlow Condensed"; font.pixelSize: 13; font.weight: Font.Bold
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+
+                    Text {
+                        text: "This will permanently\ndelete all progress."
+                        color: "#4a6a5a"
+                        font.family: "Barlow Condensed"; font.pixelSize: 10
+                        horizontalAlignment: Text.AlignHCenter
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+
+                    Rectangle { width: parent.width; height: 1; color: Qt.rgba(1, 0.27, 0.4, 0.2) }
+
+                    Row {
+                        width: parent.width
+                        spacing: 8
+
+                        Rectangle {
+                            width: (parent.width - 8) / 2; height: 28; radius: 3
+                            color: yesHover.containsMouse ? Qt.rgba(1, 0.27, 0.4, 0.15) : Qt.rgba(1, 0.27, 0.4, 0.08)
+                            border.color: Qt.rgba(1, 0.27, 0.4, 0.4); border.width: 1
+                            Text {
+                                anchors.centerIn: parent
+                                text: "YES, DELETE"
+                                color: "#ff4466"
+                                font.family: "Barlow Condensed"; font.pixelSize: 11; font.weight: Font.DemiBold
+                            }
+                            MouseArea {
+                                id: yesHover
+                                anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onPressed: {
+                                    bridge.deleteCharacter(profileModal.pendingDeleteName)
+                                    profileModal.pendingDeleteName = ""
+                                    profileModal.confirmVisible = false
+                                    bridge.closeProfileModal()
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: (parent.width - 8) / 2; height: 28; radius: 3
+                            color: "transparent"
+                            border.color: Qt.rgba(1, 1, 1, 0.1); border.width: 1
+                            Text {
+                                anchors.centerIn: parent
+                                text: "CANCEL"
+                                color: cancelHover.containsMouse ? "#e8ffe8" : "#4a6a5a"
+                                font.family: "Barlow Condensed"; font.pixelSize: 11; font.weight: Font.DemiBold
+                            }
+                            MouseArea {
+                                id: cancelHover
+                                anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onPressed: {
+                                    profileModal.pendingDeleteName = ""
+                                    profileModal.confirmVisible = false
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -541,6 +541,14 @@ class OverlayBridge(QObject):
             return
         active = self.char_data.get("active")
         delete_character(self.char_data, name)
+        # Safety net: ensure at least one profile always exists
+        if not self.char_data.get("characters"):
+            self.char_data["characters"] = {"Default": {
+                "current_step": 0,
+                "completed_data": {},
+                "highwater_mark": 0,
+            }}
+            self.char_data["active"] = "Default"
         save_characters(self.char_data)
         if name == active:
             new_active = self.char_data.get("active")

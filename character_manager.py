@@ -66,9 +66,11 @@ def add_character(data, name):
 
 
 def delete_character(data, name):
-    chars = data.get("characters", {})
-    if name not in chars or len(chars) <= 1:
-        return
-    del chars[name]
+    if len(data["characters"]) <= 1:
+        return data
+    if name not in data["characters"]:
+        return data
+    del data["characters"][name]
     if data.get("active") == name:
-        data["active"] = next(iter(chars))
+        data["active"] = list(data["characters"].keys())[0]
+    return data
