@@ -328,8 +328,7 @@ Window {
                     model: bridge.substeps
                     delegate: Item {
                         width: substepList.width
-                        height: bridge.baseFontSize + 10
-                        clip: true
+                        height: lineText.implicitHeight + 6
 
                         Row {
                             anchors.verticalCenter: parent.verticalCenter
@@ -357,8 +356,8 @@ Window {
 
                             // Text column
                             Text {
-                                width: substepList.width - 20
-                                anchors.verticalCenter: parent.verticalCenter
+                                id: lineText
+                                width: substepList.width - 28
                                 text: modelData.text
                                 color: primaryText
                                 opacity: 1.0
@@ -366,7 +365,7 @@ Window {
                                 font.pixelSize: bridge.baseFontSize
                                 font.weight: Font.DemiBold
                                 textFormat: Text.RichText
-                                clip: true
+                                wrapMode: Text.WordWrap
                             }
                         }
                     }

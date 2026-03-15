@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import math
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, QObject, pyqtProperty, pyqtSignal, pyqtSlot, QUrl, QTimer
 from PyQt6.QtGui import QFontDatabase
@@ -442,7 +443,20 @@ class OverlayBridge(QObject):
     def recalculate_height(self):
         n = len(self._substeps)
         fs = self.global_config.get("base_font_size", 13)
-        h = max(120, 32 + 22 + 1 + 6 + n * (fs + 10) + max(0, n - 1) * 6 + 6)
+        w = self.global_config.get("window_width", 400)
+        sidebar_width = 36
+        padding = 16
+        icon_width = 20
+        available = max(1, w - sidebar_width - padding - icon_width)
+        chars_per_line = max(1, int(available / (fs * 0.55)))
+        h = 32 + 22 + 1 + 6
+        for substep in self._substeps:
+            plain = re.sub(r'<[^>]+>', '', substep["text"])
+            line_count = max(1, math.ceil(len(plain) / chars_per_line))
+            h += (fs + 4) * line_count + 6
+        h += max(0, n - 1) * 6
+        h += 6
+        h = max(120, h)
         if h != self._target_height:
             if self._window:
                 # Keep bottom edge fixed: window grows/shrinks upward
