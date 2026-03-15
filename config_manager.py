@@ -10,7 +10,6 @@ DEFAULT_CONFIG = {
     "client_txt_path": "",
     "theme": "Exile Dark",
     "opacity": 0.85,
-    "click_through": False,
     "compact_mode": False,
     "base_font_size": 13
 }

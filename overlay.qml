@@ -108,6 +108,8 @@ Window {
 
             Item { Layout.fillWidth: true }
 
+
+
             // A-
             Rectangle {
                 width: tbAMinus.implicitWidth + 14; height: 20; radius: 2; color: "transparent"
