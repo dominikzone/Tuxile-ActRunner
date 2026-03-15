@@ -146,84 +146,10 @@ Window {
         }
     }
 
-    // ── UPDATE BAR ────────────────────────────────────────────────────
-    Rectangle {
-        id: updateBar
-        anchors.top: titleBar.bottom
-        anchors.left: parent.left; anchors.right: parent.right
-        height: bridge && bridge.showUpdateBar ? 22 : 0
-        visible: bridge ? bridge.showUpdateBar : false
-        color: Qt.rgba(1, 0.8, 0, 0.06)
-        clip: true
-
-        Rectangle {
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left; anchors.right: parent.right
-            height: 1; color: Qt.rgba(1, 0.8, 0, 0.15)
-        }
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 8; anchors.rightMargin: 6
-            spacing: 6
-
-            Text {
-                text: "⬆ " + (bridge ? bridge.updateText : "")
-                color: neonYellow
-                font.family: "Barlow Condensed"; font.pixelSize: 9; font.weight: Font.DemiBold
-            }
-
-            Item { Layout.fillWidth: true }
-
-            // Open Github button
-            Rectangle {
-                width: upBtnText.implicitWidth + 8; height: 14; radius: 2
-                color: "transparent"
-                border.color: upHover.containsMouse ? Qt.rgba(1, 0.8, 0, 0.7) : Qt.rgba(1, 0.8, 0, 0.4)
-                border.width: 1
-
-                Text {
-                    id: upBtnText
-                    anchors.centerIn: parent
-                    text: "↗ GITHUB"
-                    color: upHover.containsMouse ? "#ffe066" : neonYellow
-                    font.family: "Barlow Condensed"; font.pixelSize: 8; font.weight: Font.DemiBold
-                }
-                MouseArea {
-                    id: upHover
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.openGithub() }
-                }
-            }
-
-            // Dismiss button
-            Rectangle {
-                width: dimBtnText.implicitWidth + 8; height: 14; radius: 2
-                color: "transparent"
-                border.color: Qt.rgba(0, 1, 1, 0.15); border.width: 1
-
-                Text {
-                    id: dimBtnText
-                    anchors.centerIn: parent
-                    text: "✕"
-                    color: mutedText
-                    font.family: "Barlow Condensed"; font.pixelSize: 8
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.dismissUpdate() }
-                }
-            }
-        }
-    }
-
     // ── BODY (content + sidebar) ──────────────────────────────────────
     Item {
         id: bodyRow
-        anchors.top: updateBar.bottom
+        anchors.top: titleBar.bottom
         anchors.left: parent.left; anchors.right: parent.right
         anchors.bottom: parent.bottom
 
@@ -841,5 +767,191 @@ Window {
         }
     }
 } // profileModal
+
+    // ── UPDATE POPUP ──────────────────────────────────────────────────
+    Window {
+        id: updatePopup
+        flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+        color: "transparent"
+        visible: bridge ? bridge.showUpdatePopup : false
+        width: 360
+        height: updateContent.implicitHeight
+
+        x: root.x + (root.width  - width)  / 2
+        y: Math.max(0, root.y + (root.height - height) / 2)
+
+        Connections {
+            target: root
+            function onXChanged() {
+                updatePopup.x = root.x + (root.width - updatePopup.width) / 2
+            }
+            function onYChanged() {
+                updatePopup.y = Math.max(0,
+                    root.y + (root.height - updatePopup.height) / 2)
+            }
+        }
+
+        Rectangle {
+            id: updateContent
+            width: 360
+            implicitHeight: updateCol.implicitHeight
+            height: implicitHeight
+            color: "#0d0d20"
+            border.color: Qt.rgba(0, 1, 1, 0.3); border.width: 1
+            radius: 6
+
+            Column {
+                id: updateCol
+                width: 360
+                spacing: 0
+
+                // Header
+                Rectangle {
+                    width: parent.width; height: 32
+                    color: "#0a0a18"
+                    radius: 6
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        width: parent.width; height: 16
+                        color: "#0a0a18"
+                    }
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left; anchors.right: parent.right
+                        height: 1; color: Qt.rgba(0, 1, 1, 0.08)
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left; anchors.leftMargin: 10
+                        text: "⬆ NEW VERSION AVAILABLE"
+                        color: neonYellow
+                        font.family: "Orbitron"; font.pixelSize: 10; font.weight: Font.DemiBold
+                    }
+                }
+
+                // Version line
+                Item {
+                    width: parent.width; height: 36
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 8
+                        Text {
+                            text: "v" + (bridge ? bridge.updateCurrent : "")
+                            color: mutedText
+                            font.family: "Barlow Condensed"; font.pixelSize: 13; font.weight: Font.DemiBold
+                        }
+                        Text {
+                            text: "→"; color: neonYellow
+                            font.family: "Barlow Condensed"; font.pixelSize: 13
+                        }
+                        Text {
+                            text: "v" + (bridge ? bridge.updateLatest : "")
+                            color: neonGreen
+                            font.family: "Barlow Condensed"; font.pixelSize: 13; font.weight: Font.DemiBold
+                        }
+                    }
+                }
+
+                Rectangle { width: parent.width; height: 1; color: Qt.rgba(0, 1, 1, 0.08) }
+
+                // Changelog
+                Column {
+                    width: parent.width
+                    topPadding: 10; bottomPadding: 10; leftPadding: 10; rightPadding: 10
+                    spacing: 6
+
+                    Text {
+                        text: "WHAT'S NEW"
+                        color: mutedText
+                        font.family: "Barlow Condensed"; font.pixelSize: 10
+                        font.weight: Font.DemiBold; font.letterSpacing: 1
+                    }
+                    Text {
+                        width: parent.width - 20
+                        text: bridge ? bridge.updateChangelog : ""
+                        color: primaryText
+                        font.family: "Barlow Condensed"; font.pixelSize: 12; font.weight: Font.DemiBold
+                        wrapMode: Text.WordWrap
+                        lineHeight: 1.6
+                    }
+                }
+
+                Rectangle { width: parent.width; height: 1; color: Qt.rgba(0, 1, 1, 0.08) }
+
+                // Buttons
+                Item {
+                    width: parent.width; height: 48
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 10
+
+                        // YES button
+                        Rectangle {
+                            width: yesUpdateText.implicitWidth + 24; height: 30; radius: 3
+                            color: yesUpdateHover.containsMouse
+                                   ? Qt.rgba(0, 1, 0.53, 0.15) : Qt.rgba(0, 1, 0.53, 0.08)
+                            border.color: Qt.rgba(0, 1, 0.53, 0.4); border.width: 1
+                            Text {
+                                id: yesUpdateText; anchors.centerIn: parent
+                                text: "✓ YES, OPEN GITHUB"; color: neonGreen
+                                font.family: "Barlow Condensed"; font.pixelSize: 11; font.weight: Font.DemiBold
+                            }
+                            MouseArea {
+                                id: yesUpdateHover; anchors.fill: parent
+                                hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: bridge.acceptUpdate()
+                            }
+                        }
+
+                        // NO button
+                        Rectangle {
+                            id: noUpdateRect
+                            width: noUpdateText.implicitWidth + 24; height: 30; radius: 3
+                            color: "transparent"
+                            border.color: noUpdateHover.containsMouse
+                                          ? Qt.rgba(1, 1, 1, 0.25) : Qt.rgba(1, 1, 1, 0.1)
+                            border.width: 1
+                            Text {
+                                id: noUpdateText; anchors.centerIn: parent
+                                text: "✕ NOT NOW"
+                                color: noUpdateHover.containsMouse ? primaryText : mutedText
+                                font.family: "Barlow Condensed"; font.pixelSize: 11; font.weight: Font.DemiBold
+                            }
+                            MouseArea {
+                                id: noUpdateHover; anchors.fill: parent
+                                hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: bridge.dismissUpdate()
+                            }
+                        }
+                    }
+                }
+
+                // Note
+                Rectangle {
+                    width: parent.width
+                    height: updateNoteText.implicitHeight + 12
+                    color: Qt.rgba(0, 0, 0, 0.2)
+                    radius: 6
+                    Rectangle {
+                        anchors.top: parent.top
+                        width: parent.width; height: 8
+                        color: Qt.rgba(0, 0, 0, 0.2)
+                    }
+                    Text {
+                        id: updateNoteText
+                        anchors.centerIn: parent
+                        width: parent.width - 20
+                        text: "Clicking YES opens GitHub in your browser.\n" +
+                              "Your profiles and progress are never affected by updates."
+                        color: mutedText
+                        font.family: "Barlow Condensed"; font.pixelSize: 9
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
+                        lineHeight: 1.5
+                    }
+                }
+            }
+        }
+    } // updatePopup
 
 } // Window (root)

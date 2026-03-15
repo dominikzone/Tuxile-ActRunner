@@ -73,7 +73,7 @@ class OverlayBridge(QObject):
     currentZoneChanged      = pyqtSignal()
     targetHeightChanged     = pyqtSignal()
     characterListChanged    = pyqtSignal()
-    updateAvailable         = pyqtSignal()
+    updateAvailableChanged  = pyqtSignal()
     profileModalOpenChanged = pyqtSignal()
 
     def __init__(self, char_data, global_config):
@@ -92,7 +92,9 @@ class OverlayBridge(QObject):
         self._target_height = 200
         self._update_current = ""
         self._update_latest = ""
-        self._show_update_bar = False
+        self._update_changelog = ""
+        self._update_release_url = ""
+        self._show_update_popup = False
         self._fulfilled = set()
         self._profile_modal_open = False
         self.update_substeps()
@@ -440,8 +442,7 @@ class OverlayBridge(QObject):
     def recalculate_height(self):
         n = len(self._substeps)
         fs = self.global_config.get("base_font_size", 13)
-        extra = 22 if self._show_update_bar else 0
-        h = max(120, 32 + extra + 22 + 1 + 6 + n * (fs + 10) + max(0, n - 1) * 6 + 6)
+        h = max(120, 32 + 22 + 1 + 6 + n * (fs + 10) + max(0, n - 1) * 6 + 6)
         if h != self._target_height:
             if self._window:
                 # Keep bottom edge fixed: window grows/shrinks upward
@@ -566,33 +567,44 @@ class OverlayBridge(QObject):
 
     # ── Update checker ────────────────────────────────────────────────
 
-    @pyqtProperty(bool, notify=updateAvailable)
-    def showUpdateBar(self):
-        return self._show_update_bar
+    @pyqtProperty(bool, notify=updateAvailableChanged)
+    def showUpdatePopup(self):
+        return self._show_update_popup
 
-    @pyqtProperty(str, notify=updateAvailable)
-    def updateText(self):
-        return f"v{self._update_current} → v{self._update_latest} available"
+    @pyqtProperty(str, notify=updateAvailableChanged)
+    def updateCurrent(self):
+        return self._update_current
 
-    @pyqtSlot(str, str)
-    def setUpdateAvailable(self, current, latest):
+    @pyqtProperty(str, notify=updateAvailableChanged)
+    def updateLatest(self):
+        return self._update_latest
+
+    @pyqtProperty(str, notify=updateAvailableChanged)
+    def updateChangelog(self):
+        return self._update_changelog
+
+    @pyqtSlot(str, str, str, str)
+    def setUpdateAvailable(self, current, latest, changelog, url):
         self._update_current = current
         self._update_latest = latest
-        self._show_update_bar = True
-        self.updateAvailable.emit()
-        self.recalculate_height()
+        self._update_changelog = changelog
+        self._update_release_url = url
+        self._show_update_popup = True
+        self.updateAvailableChanged.emit()
+
+    @pyqtSlot()
+    def acceptUpdate(self):
+        import subprocess
+        subprocess.Popen(["xdg-open", self._update_release_url])
+        self._show_update_popup = False
+        self.updateAvailableChanged.emit()
 
     @pyqtSlot()
     def dismissUpdate(self):
-        self._show_update_bar = False
-        self.updateAvailable.emit()
-        self.recalculate_height()
-
-    @pyqtSlot()
-    def openGithub(self):
-        import subprocess
-        subprocess.Popen(["xdg-open",
-            "https://github.com/dominikzone/Tuxile-ActRunner/releases/latest"])
+        self.global_config["update_dismissed_version"] = self._update_latest
+        self.request_save()
+        self._show_update_popup = False
+        self.updateAvailableChanged.emit()
 
 
 class PoEApp:
@@ -648,7 +660,7 @@ class PoEApp:
             self.global_config["client_txt_path"] = poe_path
         self.setup_log_watcher()
         QTimer.singleShot(0, self.scan_log_history)
-        QTimer.singleShot(3000, self.check_for_updates)
+        QTimer.singleShot(4000, self.check_for_updates)
 
     def setup_log_watcher(self):
         path = self.global_config.get("client_txt_path", "")
@@ -701,17 +713,40 @@ class PoEApp:
         try:
             import urllib.request
             import json
+
+            version_file = os.path.join(os.path.dirname(__file__), "version.txt")
+            if not os.path.exists(version_file):
+                return
+            with open(version_file) as f:
+                current_version = f.read().strip()
+
+            dismissed = self.global_config.get("update_dismissed_version", "")
+
             url = "https://api.github.com/repos/dominikzone/Tuxile-ActRunner/releases/latest"
-            req = urllib.request.Request(url, headers={"User-Agent": "TuxileActRunner"})
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "TuxileActRunner/" + current_version}
+            )
             with urllib.request.urlopen(req, timeout=5) as response:
                 data = json.loads(response.read())
-                latest = data.get("tag_name", "").lstrip("v")
-                current = open(os.path.join(
-                    os.path.dirname(__file__), "version.txt")).read().strip()
-                if latest and latest != current:
-                    self.bridge.setUpdateAvailable(current, latest)
-        except:
-            pass  # silently fail — no internet or no releases yet
+
+            latest_version = data.get("tag_name", "").lstrip("v").strip()
+            changelog = data.get("body", "No changelog available.").strip()
+            release_url = data.get("html_url",
+                "https://github.com/dominikzone/Tuxile-ActRunner/releases/latest")
+
+            if not latest_version:
+                return
+            if latest_version == current_version:
+                return
+            if latest_version == dismissed:
+                return
+
+            self.bridge.setUpdateAvailable(
+                current_version, latest_version, changelog, release_url
+            )
+
+        except Exception as e:
+            print(f"Update check failed (no internet?): {e}")
 
     def on_zone_changed(self, zone_name):
         self.bridge.currentZone = zone_name
