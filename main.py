@@ -74,6 +74,7 @@ class OverlayBridge(QObject):
     targetHeightChanged     = pyqtSignal()
     characterListChanged    = pyqtSignal()
     updateAvailable         = pyqtSignal()
+    profileModalOpenChanged = pyqtSignal()
 
     def __init__(self, char_data, global_config):
         super().__init__()
@@ -93,6 +94,7 @@ class OverlayBridge(QObject):
         self._update_latest = ""
         self._show_update_bar = False
         self._fulfilled = set()
+        self._profile_modal_open = False
         self.update_substeps()
 
         self.save_timer = QTimer()
@@ -372,16 +374,16 @@ class OverlayBridge(QObject):
 
     @pyqtSlot()
     def increaseFontSize(self):
-        new_size = min(16, self.config.get("base_font_size", 9) + 1)
-        self.config["base_font_size"] = new_size
+        new_size = min(16, self.global_config.get("base_font_size", 13) + 1)
+        self.global_config["base_font_size"] = new_size
         self.request_save()
         self.baseFontSizeChanged.emit()
         self.recalculate_height()
 
     @pyqtSlot()
     def decreaseFontSize(self):
-        new_size = max(9, self.config.get("base_font_size", 9) - 1)
-        self.config["base_font_size"] = new_size
+        new_size = max(9, self.global_config.get("base_font_size", 13) - 1)
+        self.global_config["base_font_size"] = new_size
         self.request_save()
         self.baseFontSizeChanged.emit()
         self.recalculate_height()
@@ -395,40 +397,40 @@ class OverlayBridge(QObject):
 
     def _on_window_moved(self):
         if self._window:
-            self.config["window_x"] = self._window.x()
-            self.config["window_y"] = self._window.y()
+            self.global_config["window_x"] = self._window.x()
+            self.global_config["window_y"] = self._window.y()
             self.request_save()
 
     # ── Window geometry properties ────────────────────────────────────
 
     @pyqtProperty(int, notify=windowPosChanged)
-    def windowX(self): return self.config.get("window_x", 100)
+    def windowX(self): return self.global_config.get("window_x", 100)
     @pyqtProperty(int, notify=windowPosChanged)
-    def windowY(self): return self.config.get("window_y", 100)
+    def windowY(self): return self.global_config.get("window_y", 100)
     @pyqtProperty(int, notify=windowSizeChanged)
-    def windowWidth(self): return self.config.get("window_width", 400)
+    def windowWidth(self): return self.global_config.get("window_width", 400)
     @pyqtProperty(int, notify=windowSizeChanged)
-    def windowHeight(self): return self.config.get("window_height", 250)
+    def windowHeight(self): return self.global_config.get("window_height", 250)
 
     @pyqtSlot(int, int)
     def updateWindowPos(self, x, y):
-        self.config["window_x"] = x
-        self.config["window_y"] = y
+        self.global_config["window_x"] = x
+        self.global_config["window_y"] = y
         self.request_save()
         self.windowPosChanged.emit()
 
     @pyqtProperty(float, notify=opacityChanged)
-    def opacity(self): return self.config.get("opacity", 0.85)
+    def opacity(self): return self.global_config.get("opacity", 0.85)
 
     @pyqtSlot(float)
     def adjustOpacity(self, delta):
         new_op = max(0.2, min(1.0, self.opacity + delta))
-        self.config["opacity"] = new_op
+        self.global_config["opacity"] = new_op
         self.request_save()
         self.opacityChanged.emit()
 
     @pyqtProperty(int, notify=baseFontSizeChanged)
-    def baseFontSize(self): return self.config.get("base_font_size", 9)
+    def baseFontSize(self): return self.global_config.get("base_font_size", 13)
 
     # ── Height auto-sizing ────────────────────────────────────────────
     # Formula: titlebar(26) + updateBar(22 if visible) + topbar(22) + divider(1)
@@ -437,15 +439,15 @@ class OverlayBridge(QObject):
     @pyqtSlot()
     def recalculate_height(self):
         n = len(self._substeps)
-        fs = self.config.get("base_font_size", 9)
+        fs = self.global_config.get("base_font_size", 13)
         extra = 22 if self._show_update_bar else 0
         h = max(120, 32 + extra + 22 + 1 + 6 + n * (fs + 10) + max(0, n - 1) * 6 + 6)
         if h != self._target_height:
             if self._window:
                 # Keep bottom edge fixed: window grows/shrinks upward
-                current_bottom = self._window.y() + self._window.height()
+                current_bottom = self._window.y() + self._target_height
                 new_y = current_bottom - h
-                self.config["window_y"] = new_y
+                self.global_config["window_y"] = new_y
                 self.windowPosChanged.emit()
             self._target_height = h
             self.targetHeightChanged.emit()
@@ -466,6 +468,22 @@ class OverlayBridge(QObject):
         self.actTitleChanged.emit()
         self.actInfoChanged.emit()
         self.update_substeps()
+
+    # ── Profile modal ─────────────────────────────────────────────────
+
+    @pyqtProperty(bool, notify=profileModalOpenChanged)
+    def profileModalOpen(self):
+        return self._profile_modal_open
+
+    @pyqtSlot()
+    def openProfileModal(self):
+        self._profile_modal_open = True
+        self.profileModalOpenChanged.emit()
+
+    @pyqtSlot()
+    def closeProfileModal(self):
+        self._profile_modal_open = False
+        self.profileModalOpenChanged.emit()
 
     # ── Character management ──────────────────────────────────────────
 
@@ -497,19 +515,13 @@ class OverlayBridge(QObject):
         self.auto_completed_steps = set(int(k) for k in self.completed_data.keys())
         self.highwater_mark = self.config.get("highwater_mark", 0)
         self._html_cache = {}
+        self._fulfilled = set()
         save_characters(self.char_data)
-        if self._window:
-            self._window.setProperty("x", self.config.get("window_x", 100))
-            self._window.setProperty("y", self.config.get("window_y", 100))
-            self._window.setProperty("width", self.config.get("window_width", 400))
         self.currentStepIndexChanged.emit()
         self.actTitleChanged.emit()
         self.actInfoChanged.emit()
-        self.windowPosChanged.emit()
-        self.windowSizeChanged.emit()
-        self.opacityChanged.emit()
-        self.baseFontSizeChanged.emit()
         self.characterListChanged.emit()
+        self.closeProfileModal()
         self.update_substeps()
 
     @pyqtSlot(str)
@@ -520,6 +532,7 @@ class OverlayBridge(QObject):
         add_character(self.char_data, name)
         save_characters(self.char_data)
         self.characterListChanged.emit()
+        self.switchCharacter(name)
 
     @pyqtSlot(str)
     def deleteCharacter(self, name):
@@ -536,13 +549,10 @@ class OverlayBridge(QObject):
             self.auto_completed_steps = set(int(k) for k in self.completed_data.keys())
             self.highwater_mark = self.config.get("highwater_mark", 0)
             self._html_cache = {}
+            self._fulfilled = set()
             self.currentStepIndexChanged.emit()
             self.actTitleChanged.emit()
             self.actInfoChanged.emit()
-            self.windowPosChanged.emit()
-            self.windowSizeChanged.emit()
-            self.opacityChanged.emit()
-            self.baseFontSizeChanged.emit()
             self.update_substeps()
         self.characterListChanged.emit()
 
@@ -594,8 +604,7 @@ class PoEApp:
         if not char_file_exists:
             active = self.char_data["active"]
             char_cfg = self.char_data["characters"][active]
-            for key in ["current_step", "completed_data", "highwater_mark",
-                        "opacity", "base_font_size", "window_x", "window_y", "window_width"]:
+            for key in ["current_step", "completed_data", "highwater_mark"]:
                 if key in self.global_config:
                     char_cfg[key] = self.global_config[key]
             save_characters(self.char_data)
@@ -616,9 +625,9 @@ class PoEApp:
         root.xChanged.connect(self.bridge._on_window_moved)
         root.yChanged.connect(self.bridge._on_window_moved)
         root.widthChanged.connect(self._save_window_size)
-        root.setProperty("width", self.bridge.config.get("window_width", 400))
-        root.setProperty("x", self.bridge.config.get("window_x", 100))
-        root.setProperty("y", self.bridge.config.get("window_y", 100))
+        root.setProperty("width", self.bridge.global_config.get("window_width", 400))
+        root.setProperty("x", self.bridge.global_config.get("window_x", 100))
+        root.setProperty("y", self.bridge.global_config.get("window_y", 100))
         root.requestActivate()
         root.raise_()
 
@@ -677,7 +686,7 @@ class PoEApp:
     def _save_window_size(self):
         w = self.bridge._window
         if w:
-            self.bridge.config["window_width"] = w.width()
+            self.bridge.global_config["window_width"] = w.width()
             self.bridge.request_save()
 
     def check_for_updates(self):

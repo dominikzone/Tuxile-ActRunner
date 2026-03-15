@@ -7,11 +7,6 @@ DEFAULT_CHARACTER_CONFIG = {
     "current_step": 0,
     "completed_data": {},
     "highwater_mark": 0,
-    "opacity": 0.85,
-    "base_font_size": 9,
-    "window_x": 100,
-    "window_y": 100,
-    "window_width": 400,
 }
 
 
