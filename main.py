@@ -184,8 +184,10 @@ class OverlayBridge(QObject):
 
     @pyqtProperty(int, notify=actInfoChanged)
     def currentActNumber(self):
-        act_num, _, _ = self._get_act_info(self.currentStepIndex)
-        return act_num
+        idx = self.currentStepIndex
+        if 0 <= idx < len(WALKTHROUGH):
+            return WALKTHROUGH[idx].get("act", 1)
+        return 1
 
     @pyqtProperty(int, notify=actInfoChanged)
     def currentActStepIndex(self):
@@ -723,17 +725,35 @@ class PoEApp:
         except Exception as e:
             print(f"Update check failed (no internet?): {e}")
 
+    def _get_act_for_step(self, step_idx):
+        if 0 <= step_idx < len(WALKTHROUGH):
+            return WALKTHROUGH[step_idx].get("act", 1)
+        return 1
+
     def on_zone_changed(self, zone_name):
         self.bridge.currentZone = zone_name
         if zone_name in TOWNS:
             return
+
+        current_act = self._get_act_for_step(self.bridge.highwater_mark)
+
         for i, step in enumerate(WALKTHROUGH):
-            if step["zone"].lower() == zone_name.lower():
-                if i < self.bridge.highwater_mark:
-                    continue
-                if self.bridge.currentStepIndex != i:
-                    self.bridge.currentStepIndex = i
-                break
+            log_name = step.get("log_zone", step["zone"])
+            if log_name.lower() != zone_name.lower():
+                continue
+
+            step_act = step.get("act", 1)
+            if step_act < current_act:
+                continue
+            if step_act > current_act + 1:
+                continue
+
+            if i < self.bridge.highwater_mark:
+                continue
+
+            if self.bridge.currentStepIndex != i:
+                self.bridge.currentStepIndex = i
+            break
 
     def on_waypoint_discovered(self): pass
     def on_quest_item_found(self, item_name): pass
