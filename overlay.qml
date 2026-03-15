@@ -44,7 +44,7 @@ Window {
         id: titleBar
         anchors.top: parent.top
         anchors.left: parent.left; anchors.right: parent.right
-        height: 26
+        height: 32
         color: surface
 
         Rectangle {
@@ -135,37 +135,37 @@ Window {
 
             // A-
             Rectangle {
-                width: tbAMinus.implicitWidth + 8; height: 16; radius: 2; color: "transparent"
+                width: tbAMinus.implicitWidth + 14; height: 20; radius: 2; color: "transparent"
                 border.color: Qt.rgba(0, 1, 1, 0.15); border.width: 1
                 Layout.alignment: Qt.AlignVCenter
-                Text { id: tbAMinus; anchors.centerIn: parent; text: "A-"; color: mutedText; font.family: "Barlow Condensed"; font.pixelSize: 8 }
+                Text { id: tbAMinus; anchors.centerIn: parent; text: "A-"; color: mutedText; font.family: "Barlow Condensed"; font.pixelSize: 10; font.weight: Font.DemiBold }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.decreaseFontSize() } }
             }
 
             // A+
             Rectangle {
-                width: tbAPlus.implicitWidth + 8; height: 16; radius: 2; color: "transparent"
+                width: tbAPlus.implicitWidth + 14; height: 20; radius: 2; color: "transparent"
                 border.color: Qt.rgba(0, 1, 1, 0.15); border.width: 1
                 Layout.alignment: Qt.AlignVCenter
-                Text { id: tbAPlus; anchors.centerIn: parent; text: "A+"; color: mutedText; font.family: "Barlow Condensed"; font.pixelSize: 8 }
+                Text { id: tbAPlus; anchors.centerIn: parent; text: "A+"; color: mutedText; font.family: "Barlow Condensed"; font.pixelSize: 10; font.weight: Font.DemiBold }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.increaseFontSize() } }
             }
 
             // R (reset)
             Rectangle {
-                width: tbR.implicitWidth + 8; height: 16; radius: 2; color: "transparent"
+                width: tbR.implicitWidth + 14; height: 20; radius: 2; color: "transparent"
                 border.color: rHover.containsMouse ? Qt.rgba(1, 0.27, 0.4, 0.5) : Qt.rgba(0, 1, 1, 0.15); border.width: 1
                 Layout.alignment: Qt.AlignVCenter
-                Text { id: tbR; anchors.centerIn: parent; text: "R"; color: rHover.containsMouse ? dangerRed : mutedText; font.family: "Barlow Condensed"; font.pixelSize: 8 }
+                Text { id: tbR; anchors.centerIn: parent; text: "R"; color: rHover.containsMouse ? dangerRed : mutedText; font.family: "Barlow Condensed"; font.pixelSize: 10; font.weight: Font.DemiBold }
                 MouseArea { id: rHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.resetProgress() } }
             }
 
             // ✕ (close)
             Rectangle {
-                width: tbX.implicitWidth + 8; height: 16; radius: 2; color: "transparent"
+                width: tbX.implicitWidth + 14; height: 20; radius: 2; color: "transparent"
                 border.color: xHover.containsMouse ? Qt.rgba(1, 0.27, 0.4, 0.5) : Qt.rgba(0, 1, 1, 0.15); border.width: 1
                 Layout.alignment: Qt.AlignVCenter
-                Text { id: tbX; anchors.centerIn: parent; text: "✕"; color: xHover.containsMouse ? dangerRed : mutedText; font.family: "Barlow Condensed"; font.pixelSize: 8 }
+                Text { id: tbX; anchors.centerIn: parent; text: "✕"; color: xHover.containsMouse ? dangerRed : mutedText; font.family: "Barlow Condensed"; font.pixelSize: 10; font.weight: Font.DemiBold }
                 MouseArea { id: xHover; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) Qt.quit() } }
             }
         }
@@ -387,12 +387,12 @@ Window {
         anchors.left: parent.left; anchors.right: parent.right
         anchors.bottom: parent.bottom
 
-        // ── SIDEBAR (right, 22px) ─────────────────────────────────────
+        // ── SIDEBAR (right, 36px) ─────────────────────────────────────
         Rectangle {
             id: sidebar
             anchors.top: parent.top; anchors.bottom: parent.bottom
             anchors.right: parent.right
-            width: 22
+            width: 36
             color: "#08081a"
 
             // Left border
@@ -405,8 +405,8 @@ Window {
             Item {
                 id: sidebarPrev
                 anchors.top: parent.top
-                width: parent.width; height: 22
-                Text { anchors.centerIn: parent; text: "▲"; color: neonCyan; font.pixelSize: 11 }
+                width: parent.width; height: 26
+                Text { anchors.centerIn: parent; text: "▲"; color: neonCyan; font.pixelSize: 16 }
                 MouseArea {
                     anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                     onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.onPrevStep() }
@@ -417,8 +417,8 @@ Window {
             Item {
                 id: sidebarNext
                 anchors.bottom: parent.bottom
-                width: parent.width; height: 22
-                Text { anchors.centerIn: parent; text: "▼"; color: neonCyan; font.pixelSize: 11 }
+                width: parent.width; height: 26
+                Text { anchors.centerIn: parent; text: "▼"; color: neonCyan; font.pixelSize: 16 }
                 MouseArea {
                     anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                     onPressed: (m) => { if (m.modifiers & Qt.ControlModifier) bridge.onNextStep() }
@@ -442,7 +442,7 @@ Window {
                         var ratio = total > 1 ? bridge.currentActStepIndex / (total - 1) : 1.0
                         return ratio >= 0.9 ? neonGreen : neonCyan
                     }
-                    font.family: "Barlow Condensed"; font.pixelSize: 7
+                    font.family: "Barlow Condensed"; font.pixelSize: 8
                 }
             }
 
@@ -453,7 +453,7 @@ Window {
                 width: parent.width
 
                 Rectangle {
-                    width: 4; radius: 2
+                    width: 5; radius: 2
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top; anchors.bottom: parent.bottom
                     anchors.topMargin: 4; anchors.bottomMargin: 4
@@ -543,7 +543,7 @@ Window {
                 x: 8
                 width: contentArea.width - 16
                 topPadding: 6; bottomPadding: 6
-                spacing: 3
+                spacing: 6
 
                 // Warning shown when Client.txt is not configured
                 Item {
@@ -562,7 +562,7 @@ Window {
                     model: bridge.substeps
                     delegate: Item {
                         width: substepList.width
-                        height: bridge.baseFontSize + 6
+                        height: bridge.baseFontSize + 10
                         clip: true
 
                         Row {
@@ -574,8 +574,6 @@ Window {
                                 width: 16
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: {
-                                    if (modelData.isCompleted) return "✓"
-                                    if (!modelData.isCurrent)  return "›"
                                     var t = modelData.iconType
                                     if (t === "waypoint") return "🔵"
                                     if (t === "boss")     return "⚔"
@@ -583,14 +581,9 @@ Window {
                                     if (t === "item")     return "📦"
                                     if (t === "trial")    return "🏆"
                                     if (t === "town")     return "🏠"
-                                    if (t === "zone")     return "→"
                                     return "→"
                                 }
-                                color: {
-                                    if (modelData.isCompleted) return mutedText
-                                    if (modelData.isCurrent)   return neonCyan
-                                    return mutedText
-                                }
+                                color: neonCyan
                                 font.pixelSize: bridge.baseFontSize
                                 font.family: "Barlow Condensed"
                                 font.weight: Font.DemiBold
@@ -601,28 +594,13 @@ Window {
                                 width: substepList.width - 20
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData.text
-                                color: {
-                                    if (modelData.isCompleted) return mutedText
-                                    if (modelData.isCurrent)   return primaryText
-                                    return mutedText
-                                }
-                                opacity: modelData.isCompleted ? 0.3 : 1.0
+                                color: primaryText
+                                opacity: 1.0
                                 font.family: "Barlow Condensed"
-                                font.pixelSize: modelData.isCurrent
-                                                ? bridge.baseFontSize
-                                                : Math.max(8, bridge.baseFontSize - 1)
+                                font.pixelSize: bridge.baseFontSize
                                 font.weight: Font.DemiBold
                                 textFormat: Text.RichText
                                 clip: true
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onPressed: (mouse) => {
-                                if (mouse.modifiers & Qt.ControlModifier)
-                                    bridge.onSubstepClicked(index)
                             }
                         }
                     }

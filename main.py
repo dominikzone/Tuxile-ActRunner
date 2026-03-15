@@ -439,7 +439,7 @@ class OverlayBridge(QObject):
         n = len(self._substeps)
         fs = self.config.get("base_font_size", 9)
         extra = 22 if self._show_update_bar else 0
-        h = max(120, 26 + extra + 22 + 1 + 6 + n * (fs + 6) + max(0, n - 1) * 3 + 6)
+        h = max(120, 32 + extra + 22 + 1 + 6 + n * (fs + 10) + max(0, n - 1) * 6 + 6)
         if h != self._target_height:
             if self._window:
                 # Keep bottom edge fixed: window grows/shrinks upward

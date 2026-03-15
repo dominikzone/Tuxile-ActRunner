@@ -12,7 +12,7 @@ DEFAULT_CONFIG = {
     "opacity": 0.85,
     "click_through": False,
     "compact_mode": False,
-    "base_font_size": 9
+    "base_font_size": 13
 }
 
 CONFIG_FILE = "config.json"
