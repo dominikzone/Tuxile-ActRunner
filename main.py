@@ -76,6 +76,7 @@ class OverlayBridge(QObject):
     characterListChanged    = pyqtSignal()
     updateAvailableChanged  = pyqtSignal()
     profileModalOpenChanged = pyqtSignal()
+    clickThroughChanged     = pyqtSignal()
 
     def __init__(self, char_data, global_config):
         super().__init__()
@@ -357,6 +358,21 @@ class OverlayBridge(QObject):
         self.baseFontSizeChanged.emit()
         self.recalculate_height()
 
+    # ── Click-through ─────────────────────────────────────────────────
+
+    @pyqtProperty(bool, notify=clickThroughChanged)
+    def clickThrough(self):
+        return self.global_config.get("click_through", False)
+
+    @pyqtSlot()
+    def toggleClickThrough(self):
+        new_val = not self.global_config.get("click_through", False)
+        self.global_config["click_through"] = new_val
+        if self._window:
+            self._window.setFlag(Qt.WindowType.WindowTransparentForInput, new_val)
+        self.request_save()
+        self.clickThroughChanged.emit()
+
     # ── Drag ──────────────────────────────────────────────────────────
 
     @pyqtSlot()
@@ -619,6 +635,8 @@ class PoEApp:
 
         root = self.engine.rootObjects()[0]
         self.bridge._window = root
+        if self.global_config.get("click_through", False):
+            root.setFlag(Qt.WindowType.WindowTransparentForInput, True)
         root.xChanged.connect(self.bridge._on_window_moved)
         root.yChanged.connect(self.bridge._on_window_moved)
         root.widthChanged.connect(self._save_window_size)
@@ -732,20 +750,10 @@ class PoEApp:
 
     def on_zone_changed(self, zone_name):
         self.bridge.currentZone = zone_name
-        if zone_name in TOWNS:
-            return
-
-        current_act = self._get_act_for_step(self.bridge.highwater_mark)
 
         for i, step in enumerate(WALKTHROUGH):
             log_name = step.get("log_zone", step["zone"])
             if log_name.lower() != zone_name.lower():
-                continue
-
-            step_act = step.get("act", 1)
-            if step_act < current_act:
-                continue
-            if step_act > current_act + 1:
                 continue
 
             if i < self.bridge.highwater_mark:
