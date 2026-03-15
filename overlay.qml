@@ -100,10 +100,33 @@ Window {
 
             Item { Layout.fillWidth: true }
 
-            Text {
-                text: "✦ TUXILE"; color: neonCyan
-                font.family: "Orbitron"; font.pixelSize: 8; font.letterSpacing: 2
+            Row {
+                spacing: 6
                 Layout.alignment: Qt.AlignVCenter
+
+                Text {
+                    text: "⚔"
+                    font.pixelSize: 18
+                    color: "#ffcc00"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Text {
+                    text: "TUXILE"
+                    font.family: "Orbitron"
+                    font.pixelSize: 13
+                    font.weight: Font.Bold
+                    color: "#ffcc00"
+                    font.letterSpacing: 3
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Text {
+                    text: "⚔"
+                    font.pixelSize: 18
+                    color: "#ffcc00"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
 
             Item { Layout.fillWidth: true }
@@ -266,7 +289,7 @@ Window {
 
                     Text {
                         text: "ACT " + bridge.currentActNumber
-                        color: mutedText; font.family: "Barlow Condensed"; font.pixelSize: 8
+                        color: "#e8ffe8"; font.family: "Barlow Condensed"; font.pixelSize: 12
                         font.weight: Font.DemiBold
                     }
 
@@ -283,7 +306,7 @@ Window {
 
                     Text {
                         text: (bridge.currentActStepIndex + 1) + "/" + bridge.currentActTotalSteps
-                        color: "#ffcc00"; font.family: "Barlow Condensed"; font.pixelSize: 8
+                        color: "#ffcc00"; font.family: "Barlow Condensed"; font.pixelSize: 12
                         font.weight: Font.DemiBold
                     }
                 }
