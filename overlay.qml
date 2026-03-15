@@ -1,12 +1,13 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 
 Window {
     id: root
     visible: true
     width:  bridge ? Math.max(300, bridge.windowWidth) : 400
-    height: bridge ? Math.max(bridge.targetHeight, bridge.profileModalOpen ? 230 : 0) : 200
+    height: bridge ? bridge.targetHeight : 200
     minimumWidth: 300
     minimumHeight: 120
     x: bridge ? bridge.windowX : 100
@@ -19,7 +20,6 @@ Window {
     readonly property color primaryBg:  "#06060f"
     readonly property color surface:    "#0a0a18"
     readonly property color neonCyan:   "#00ffff"
-    readonly property color neonPurple: "#9000ff"
     readonly property color neonGreen:  "#00ff88"
     readonly property color dangerRed:  "#ff4466"
     readonly property color primaryText:"#e8ffe8"
@@ -363,7 +363,7 @@ Window {
 
                     Text {
                         text: (bridge.currentActStepIndex + 1) + "/" + bridge.currentActTotalSteps
-                        color: neonPurple; font.family: "Barlow Condensed"; font.pixelSize: 8
+                        color: "#ffcc00"; font.family: "Barlow Condensed"; font.pixelSize: 8
                         font.weight: Font.DemiBold
                     }
                 }
@@ -449,257 +449,287 @@ Window {
         }
     }
 
-    // ── PROFILE MODAL ─────────────────────────────────────────────────
-    Item {
-        id: profileModal
-        visible: bridge ? bridge.profileModalOpen : false
-        anchors.fill: parent
-        z: 200
+    // ── PROFILE MODAL (separate OS window, child of root for id scope) ─
+    Window {
+    id: profileModal
+    flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+    color: "transparent"
+    visible: bridge ? bridge.profileModalOpen : false
+    width: 340
+    height: modalBg.implicitHeight
 
-        // Backdrop
-        Rectangle {
-            anchors.fill: parent
-            color: Qt.rgba(6/255, 6/255, 15/255, 0.85)
-            MouseArea { anchors.fill: parent; onPressed: bridge.closeProfileModal() }
-        }
+    // Smart positioning: below main window if space, above otherwise
+    x: Math.max(0, Math.min(root.x, Screen.desktopAvailableWidth - 340))
+    y: {
+        var mh = modalBg.implicitHeight
+        var spaceBelow = Screen.desktopAvailableHeight - (root.y + root.height)
+        if (spaceBelow >= mh + 4)
+            return root.y + root.height + 4
+        else
+            return Math.max(0, root.y - mh - 4)
+    }
 
-        // Modal card
-        Rectangle {
-            id: modalCard
-            width: 280
-            height: modalCol.implicitHeight
-            radius: 6
-            color: "#0d0d20"
-            border.color: Qt.rgba(0, 1, 1, 0.3); border.width: 1
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top; anchors.topMargin: 36
-            clip: true
+    Rectangle {
+        id: modalBg
+        width: 340
+        implicitHeight: modalCol.implicitHeight
+        height: implicitHeight
+        color: "#0d0d20"
+        border.color: Qt.rgba(0, 1, 1, 0.3); border.width: 1
+        radius: 6
+        clip: true
 
-            // Absorb clicks so backdrop doesn't fire
-            MouseArea { anchors.fill: parent; onPressed: (m) => m.accepted = true }
+        Column {
+            id: modalCol
+            width: 340
 
-            Column {
-                id: modalCol
-                anchors.left: parent.left; anchors.right: parent.right
-
-                // Header
+            // ── Header ──────────────────────────────────────────────
+            Rectangle {
+                width: parent.width; height: 32
+                color: "#0a0a18"
                 Rectangle {
-                    width: parent.width; height: 30
-                    color: "#0a0a18"
-                    Rectangle {
-                        anchors.bottom: parent.bottom
-                        anchors.left: parent.left; anchors.right: parent.right
-                        height: 1; color: Qt.rgba(0, 1, 1, 0.1)
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left; anchors.right: parent.right
+                    height: 1; color: Qt.rgba(0, 1, 1, 0.1)
+                }
+                RowLayout {
+                    anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 8
+                    spacing: 6
+                    Text {
+                        text: "⚔ CHARACTER PROFILES"; color: "#00ffff"
+                        font.family: "Orbitron"; font.pixelSize: 11; font.weight: Font.DemiBold
+                        Layout.alignment: Qt.AlignVCenter
                     }
-                    RowLayout {
-                        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 8
-                        spacing: 6
+                    Item { Layout.fillWidth: true }
+                    Rectangle {
+                        height: 22; radius: 2
+                        width: modalCloseLbl.implicitWidth + 16
+                        color: modalCloseHover.containsMouse ? Qt.rgba(1, 0.27, 0.4, 0.15) : "transparent"
+                        border.color: modalCloseHover.containsMouse ? Qt.rgba(1, 0.27, 0.4, 0.5) : Qt.rgba(0, 1, 1, 0.15)
+                        border.width: 1
+                        Layout.alignment: Qt.AlignVCenter
                         Text {
-                            text: "⚔ CHARACTER PROFILES"; color: neonCyan
-                            font.family: "Orbitron"; font.pixelSize: 9; font.weight: Font.DemiBold
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-                        Item { Layout.fillWidth: true }
-                        Text {
+                            id: modalCloseLbl; anchors.centerIn: parent
                             text: "✕ close"
-                            color: modalCloseHover.containsMouse ? dangerRed : mutedText
-                            font.family: "Barlow Condensed"; font.pixelSize: 9
-                            Layout.alignment: Qt.AlignVCenter
-                            MouseArea {
-                                id: modalCloseHover
-                                anchors.fill: parent
-                                hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                onPressed: bridge.closeProfileModal()
-                            }
+                            color: modalCloseHover.containsMouse ? "#ff4466" : "#4a6a5a"
+                            font.family: "Barlow Condensed"; font.pixelSize: 11
+                        }
+                        MouseArea {
+                            id: modalCloseHover; anchors.fill: parent
+                            hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onPressed: bridge.closeProfileModal()
                         }
                     }
                 }
+            }
 
-                // Character rows
-                Column {
-                    anchors.left: parent.left; anchors.right: parent.right
-                    topPadding: 8; bottomPadding: 6; leftPadding: 8; rightPadding: 8
-                    spacing: 3
+            // ── Character rows ───────────────────────────────────────
+            Column {
+                width: parent.width
+                topPadding: 8; bottomPadding: 6; leftPadding: 10; rightPadding: 10
+                spacing: 4
 
-                    Text {
-                        text: "SELECT ACTIVE CHARACTER"; color: mutedText
-                        font.family: "Barlow Condensed"; font.pixelSize: 8; font.weight: Font.DemiBold
-                        bottomPadding: 2
-                    }
+                Text {
+                    text: "SELECT ACTIVE CHARACTER"; color: "#4a6a5a"
+                    font.family: "Barlow Condensed"; font.pixelSize: 10; font.weight: Font.DemiBold
+                    font.letterSpacing: 1
+                    bottomPadding: 4
+                }
 
-                    Repeater {
-                        model: bridge ? bridge.characterList : []
-                        delegate: Rectangle {
-                            id: charRowRect
-                            property bool rowHovered: false
-                            width: modalCard.width - 16; height: 30; radius: 3
-                            color: modelData.isActive
-                                   ? Qt.rgba(0, 1, 1, 0.07)
-                                   : (rowHovered ? Qt.rgba(0, 1, 1, 0.04) : "transparent")
-                            border.color: modelData.isActive
-                                          ? Qt.rgba(0, 1, 1, 0.25)
-                                          : (rowHovered ? Qt.rgba(0, 1, 1, 0.1) : "transparent")
-                            border.width: 1
+                Repeater {
+                    model: bridge ? bridge.characterList : []
+                    delegate: Rectangle {
+                        id: charRowRect
+                        property bool rowHovered: false
+                        width: 320; height: 42; radius: 3
+                        color: modelData.isActive
+                               ? Qt.rgba(0, 1, 1, 0.07)
+                               : (rowHovered ? Qt.rgba(0, 1, 1, 0.04) : "transparent")
+                        border.color: modelData.isActive
+                                      ? Qt.rgba(0, 1, 1, 0.25)
+                                      : (rowHovered ? Qt.rgba(0, 1, 1, 0.1) : "transparent")
+                        border.width: 1
 
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 8; anchors.rightMargin: 6
-                                spacing: 5
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10; anchors.rightMargin: 8
+                            spacing: 6
 
-                                Text {
-                                    text: modelData.isActive ? "⚔" : "·"
-                                    color: modelData.isActive ? neonCyan : mutedText
-                                    font.pixelSize: modelData.isActive ? 10 : 14
-                                    font.family: "Barlow Condensed"
-                                    Layout.alignment: Qt.AlignVCenter
-                                }
+                            Column {
+                                Layout.fillWidth: true
+                                Layout.alignment: Qt.AlignVCenter
+                                spacing: 3
+
                                 Text {
                                     text: modelData.name
-                                    color: modelData.isActive ? neonCyan : primaryText
-                                    font.family: "Barlow Condensed"; font.pixelSize: 11; font.weight: Font.DemiBold
-                                    elide: Text.ElideRight; Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignVCenter
+                                    color: modelData.isActive ? "#00ffff" : "#e8ffe8"
+                                    font.family: "Barlow Condensed"; font.pixelSize: 13; font.weight: Font.Bold
+                                    elide: Text.ElideRight
+                                    width: parent.width
                                 }
-                                Text {
-                                    text: "ACT " + modelData.actNumber; color: neonPurple
-                                    font.family: "Barlow Condensed"; font.pixelSize: 9; font.weight: Font.DemiBold
-                                    Layout.alignment: Qt.AlignVCenter
-                                }
-                                Rectangle {
-                                    visible: modelData.isActive
-                                    height: 12; radius: 2
-                                    width: activeLbl.implicitWidth + 6
-                                    color: "transparent"
-                                    border.color: Qt.rgba(0, 1, 0.53, 0.3); border.width: 1
-                                    Layout.alignment: Qt.AlignVCenter
+
+                                Row {
+                                    spacing: 5
+
                                     Text {
-                                        id: activeLbl; anchors.centerIn: parent; text: "ACTIVE"
-                                        color: neonGreen; font.family: "Barlow Condensed"
-                                        font.pixelSize: 7; font.weight: Font.DemiBold
+                                        text: "ACT " + modelData.actNumber
+                                        color: "#ffcc00"
+                                        font.family: "Barlow Condensed"; font.pixelSize: 10; font.weight: Font.DemiBold
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
-                                }
-                                // Delete button
-                                Item {
-                                    id: delItem
-                                    width: 16; height: 16
-                                    Layout.alignment: Qt.AlignVCenter
-                                    property bool delHovered: false
-                                    property bool canDelete: bridge && bridge.characterList.length > 1 && !modelData.isActive
-                                    Text {
-                                        anchors.centerIn: parent; text: "✕"
-                                        color: delItem.delHovered && delItem.canDelete ? dangerRed : mutedText
-                                        font.family: "Barlow Condensed"; font.pixelSize: 10
-                                    }
-                                    MouseArea {
-                                        anchors.fill: parent; hoverEnabled: true
-                                        cursorShape: delItem.canDelete ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                        onContainsMouseChanged: delItem.delHovered = containsMouse
-                                        onPressed: (m) => {
-                                            m.accepted = true
-                                            if (delItem.canDelete) bridge.deleteCharacter(modelData.name)
+
+                                    Rectangle {
+                                        visible: modelData.isActive
+                                        height: 12; radius: 2
+                                        width: activeBadgeLbl.implicitWidth + 6
+                                        color: "transparent"
+                                        border.color: Qt.rgba(0, 1, 0.53, 0.3); border.width: 1
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        Text {
+                                            id: activeBadgeLbl; anchors.centerIn: parent
+                                            text: "ACTIVE"
+                                            color: "#00ff88"
+                                            font.family: "Barlow Condensed"; font.pixelSize: 7; font.weight: Font.DemiBold
                                         }
                                     }
                                 }
                             }
 
-                            // Row click (switch character)
-                            MouseArea {
-                                anchors.fill: parent; hoverEnabled: true
-                                cursorShape: modelData.isActive ? Qt.ArrowCursor : Qt.PointingHandCursor
-                                onContainsMouseChanged: charRowRect.rowHovered = containsMouse
-                                onPressed: {
-                                    if (!modelData.isActive && !delItem.delHovered)
-                                        bridge.switchCharacter(modelData.name)
+                            // Delete button
+                            Item {
+                                id: delItem
+                                width: delLbl.implicitWidth + 12; height: 22
+                                Layout.alignment: Qt.AlignVCenter
+                                property bool delHovered: false
+                                property bool canDelete: bridge && bridge.characterList.length > 1 && !modelData.isActive
+
+                                Rectangle {
+                                    anchors.fill: parent; radius: 2
+                                    color: "transparent"
+                                    border.color: delItem.delHovered && delItem.canDelete
+                                                  ? Qt.rgba(1, 0.27, 0.4, 0.5)
+                                                  : Qt.rgba(0, 1, 1, 0.1)
+                                    border.width: 1
                                 }
-                            }
-                        }
-                    }
-                }
-
-                // Divider
-                Rectangle { width: parent.width; height: 1; color: Qt.rgba(0, 1, 1, 0.08) }
-
-                // Add new character
-                Column {
-                    anchors.left: parent.left; anchors.right: parent.right
-                    topPadding: 8; bottomPadding: 8; leftPadding: 8; rightPadding: 8
-                    spacing: 6
-
-                    Text {
-                        text: "ADD NEW CHARACTER"; color: mutedText
-                        font.family: "Barlow Condensed"; font.pixelSize: 8; font.weight: Font.DemiBold
-                    }
-
-                    RowLayout {
-                        width: parent.width - 16; spacing: 6
-
-                        Rectangle {
-                            Layout.fillWidth: true; height: 24; radius: 3
-                            color: "#06060f"
-                            border.color: modalInput.activeFocus ? Qt.rgba(0, 1, 1, 0.5) : Qt.rgba(0, 1, 1, 0.2)
-                            border.width: 1
-                            TextInput {
-                                id: modalInput
-                                anchors.fill: parent; anchors.leftMargin: 6; anchors.rightMargin: 6
-                                color: primaryText; verticalAlignment: TextInput.AlignVCenter; clip: true
-                                font.family: "Barlow Condensed"; font.pixelSize: 11; font.weight: Font.DemiBold
-                                selectionColor: Qt.rgba(0, 1, 1, 0.3)
                                 Text {
-                                    anchors.fill: parent; verticalAlignment: Text.AlignVCenter
-                                    text: "Character name..."; color: mutedText; font: parent.font
-                                    visible: parent.text.length === 0
+                                    id: delLbl; anchors.centerIn: parent
+                                    text: "✕"
+                                    color: delItem.delHovered && delItem.canDelete ? "#ff4466" : "#4a6a5a"
+                                    font.family: "Barlow Condensed"; font.pixelSize: 12
+                                    leftPadding: 6; rightPadding: 6
                                 }
-                                Keys.onReturnPressed: {
-                                    var t = text.trim()
-                                    if (t !== "") { bridge.addCharacter(t); text = "" }
+                                MouseArea {
+                                    anchors.fill: parent; hoverEnabled: true
+                                    cursorShape: delItem.canDelete ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    onContainsMouseChanged: delItem.delHovered = containsMouse
+                                    onPressed: (m) => {
+                                        m.accepted = true
+                                        if (delItem.canDelete) bridge.deleteCharacter(modelData.name)
+                                    }
                                 }
-                                Keys.onEscapePressed: { text = ""; bridge.closeProfileModal() }
                             }
                         }
 
-                        Rectangle {
-                            width: addLbl.implicitWidth + 14; height: 24; radius: 3
-                            color: "transparent"
-                            border.color: addHover.containsMouse ? Qt.rgba(0, 1, 0.53, 0.6) : Qt.rgba(0, 1, 0.53, 0.3)
-                            border.width: 1
-                            Text {
-                                id: addLbl; anchors.centerIn: parent; text: "＋ ADD"
-                                color: neonGreen
-                                font.family: "Barlow Condensed"; font.pixelSize: 10; font.weight: Font.DemiBold
-                            }
-                            MouseArea {
-                                id: addHover; anchors.fill: parent
-                                hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                onPressed: {
-                                    var t = modalInput.text.trim()
-                                    if (t !== "") { bridge.addCharacter(t); modalInput.text = "" }
-                                }
+                        // Row click (switch character)
+                        MouseArea {
+                            anchors.fill: parent; hoverEnabled: true
+                            cursorShape: modelData.isActive ? Qt.ArrowCursor : Qt.PointingHandCursor
+                            onContainsMouseChanged: charRowRect.rowHovered = containsMouse
+                            onPressed: {
+                                if (!modelData.isActive && !delItem.delHovered)
+                                    bridge.switchCharacter(modelData.name)
                             }
                         }
                     }
                 }
+            }
 
-                // Global note
-                Rectangle {
-                    width: parent.width; height: globalNoteTxt.implicitHeight + 12
-                    color: Qt.rgba(0, 0, 0, 0.2)
+            // ── Divider ──────────────────────────────────────────────
+            Rectangle { width: parent.width; height: 1; color: Qt.rgba(0, 1, 1, 0.08) }
+
+            // ── Add new character ────────────────────────────────────
+            Column {
+                width: parent.width
+                topPadding: 8; bottomPadding: 10; leftPadding: 10; rightPadding: 10
+                spacing: 6
+
+                Text {
+                    text: "ADD NEW CHARACTER"; color: "#4a6a5a"
+                    font.family: "Barlow Condensed"; font.pixelSize: 10; font.weight: Font.DemiBold
+                    font.letterSpacing: 1
+                }
+
+                RowLayout {
+                    width: 320; spacing: 6
+
                     Rectangle {
-                        anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right
-                        height: 1; color: Qt.rgba(0, 1, 1, 0.06)
+                        Layout.fillWidth: true; height: 32; radius: 3
+                        color: "#06060f"
+                        border.color: modalInput.activeFocus ? Qt.rgba(0, 1, 1, 0.5) : Qt.rgba(0, 1, 1, 0.2)
+                        border.width: 1
+                        TextInput {
+                            id: modalInput
+                            anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
+                            color: "#e8ffe8"; verticalAlignment: TextInput.AlignVCenter; clip: true
+                            font.family: "Barlow Condensed"; font.pixelSize: 12; font.weight: Font.DemiBold
+                            selectionColor: Qt.rgba(0, 1, 1, 0.3)
+                            Text {
+                                anchors.fill: parent; verticalAlignment: Text.AlignVCenter
+                                text: "Character name..."; color: "#4a6a5a"; font: parent.font
+                                visible: parent.text.length === 0
+                            }
+                            Keys.onReturnPressed: {
+                                var t = text.trim()
+                                if (t !== "") { bridge.addCharacter(t); text = "" }
+                            }
+                            Keys.onEscapePressed: { text = ""; bridge.closeProfileModal() }
+                        }
                     }
-                    Text {
-                        id: globalNoteTxt
-                        anchors.left: parent.left; anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.leftMargin: 10; anchors.rightMargin: 10
-                        text: "⚙ Font size and window size are <span style='color:#ffcc00'>global</span> — shared across all characters"
-                        color: mutedText; font.italic: true
-                        font.family: "Barlow Condensed"; font.pixelSize: 9
-                        wrapMode: Text.Wrap; textFormat: Text.RichText
+
+                    Rectangle {
+                        width: addBtnLbl.implicitWidth + 24; height: 32; radius: 3
+                        color: "transparent"
+                        border.color: addBtnHover.containsMouse ? Qt.rgba(0, 1, 0.53, 0.6) : Qt.rgba(0, 1, 0.53, 0.3)
+                        border.width: 1
+                        Text {
+                            id: addBtnLbl; anchors.centerIn: parent
+                            text: "＋ ADD"
+                            color: "#00ff88"
+                            font.family: "Barlow Condensed"; font.pixelSize: 11; font.weight: Font.DemiBold
+                        }
+                        MouseArea {
+                            id: addBtnHover; anchors.fill: parent
+                            hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onPressed: {
+                                var t = modalInput.text.trim()
+                                if (t !== "") { bridge.addCharacter(t); modalInput.text = "" }
+                            }
+                        }
                     }
+                }
+            }
+
+            // ── Global note ──────────────────────────────────────────
+            Rectangle {
+                width: parent.width; height: globalNoteTxt.implicitHeight + 16
+                color: Qt.rgba(0, 0, 0, 0.2)
+                Rectangle {
+                    anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right
+                    height: 1; color: Qt.rgba(0, 1, 1, 0.06)
+                }
+                Text {
+                    id: globalNoteTxt
+                    anchors.left: parent.left; anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: 10; anchors.rightMargin: 10
+                    text: "⚙ Font size and window size are <span style='color:#ffcc00'>global</span> — shared across all characters"
+                    color: "#4a6a5a"
+                    font.family: "Barlow Condensed"; font.pixelSize: 10
+                    wrapMode: Text.Wrap; textFormat: Text.RichText
                 }
             }
         }
     }
+} // profileModal
 
-} // Window
+} // Window (root)
