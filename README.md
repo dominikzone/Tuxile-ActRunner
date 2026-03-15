@@ -79,3 +79,5 @@ After the initial setup and configuration, you can run the application directly 
 ```bash
 ./run.sh
 ```
+
+<!-- updated -->
