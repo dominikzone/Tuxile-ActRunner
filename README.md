@@ -5,7 +5,7 @@
 3. Save the file and launch Tuxile
 
 **How to find Client.txt:**
-- Steam default: `/home/USERNAME/.steam/steam/steamapps/common/Path of Exile/logs/Client.txt`
+- Steam default: `/home/$USER/.steam/steam/steamapps/common/Path of Exile/logs/Client.txt`
 - Proton/custom library: `/mnt/YOUR_DRIVE/SteamLibrary/steamapps/common/Path of Exile/logs/Client.txt`
 - You can find the exact path by right-clicking Path of Exile in Steam → Properties → Local Files → Browse
 
@@ -62,7 +62,7 @@ To simplify the setup and running of the application, two scripts have been prep
 
 1.  **Clone the repository (if you haven't already):**
     ```bash
-    git clone https://github.com/TwojaNazwaUzytkownika/Tuxile-ActRunner.git
+    git clone https://github.com/dominikzone/Tuxile-ActRunner.git
     cd Tuxile-ActRunner
     ```
 
