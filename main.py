@@ -334,12 +334,34 @@ class OverlayBridge(QObject):
     @pyqtSlot()
     def onPrevStep(self):
         if self.currentStepIndex > 0:
-            self.currentStepIndex -= 1
+            self.config["current_step"] = self.currentStepIndex - 1
+            self.currentStepIndexChanged.emit()
+            self.actTitleChanged.emit()
+            self.actInfoChanged.emit()
+            self.update_substeps()
+            self.request_save()
 
     @pyqtSlot()
     def onNextStep(self):
         if self.currentStepIndex < len(WALKTHROUGH) - 1:
-            self.currentStepIndex += 1
+            self.config["current_step"] = self.currentStepIndex + 1
+            self.currentStepIndexChanged.emit()
+            self.actTitleChanged.emit()
+            self.actInfoChanged.emit()
+            self.update_substeps()
+            self.request_save()
+
+    def _set_step_from_zone(self, value):
+        if self.config.get("current_step") != value:
+            self.config["current_step"] = value
+            if value > self.highwater_mark:
+                self.highwater_mark = value
+                self.config["highwater_mark"] = value
+            self.currentStepIndexChanged.emit()
+            self.actTitleChanged.emit()
+            self.actInfoChanged.emit()
+            self.update_substeps()
+            self.request_save()
 
     # ── Font size (step 1, min 9, max 16) ────────────────────────────
 
@@ -740,11 +762,11 @@ class PoEApp:
 
         best_match = None
 
+        current_displayed = self.bridge.currentStepIndex
+
         for i, step in enumerate(WALKTHROUGH):
             log_name = step.get("log_zone", step["zone"])
             if log_name.lower() != zone_name.lower():
-                continue
-            if i < self.bridge.highwater_mark:
                 continue
 
             step_act = step.get("act", 1)
@@ -755,12 +777,15 @@ class PoEApp:
             if step_act > current_act + 1:
                 continue
 
+            # Skip steps behind highwater_mark unless it's the one currently displayed
+            if i < self.bridge.highwater_mark and i != current_displayed:
+                continue
+
             best_match = i
             break
 
         if best_match is not None:
-            if self.bridge.currentStepIndex != best_match:
-                self.bridge.currentStepIndex = best_match
+            self.bridge._set_step_from_zone(best_match)
 
     def on_waypoint_discovered(self): pass
     def on_quest_item_found(self, item_name): pass
