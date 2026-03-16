@@ -283,7 +283,7 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint. Four objectives: [ICON:ENTER_ZONE]NORTH → Ossuary. [ICON:ENTER_ZONE]Find The Reliquary (opposite end from WP). [ICON:KILL_BOSS]Kill Utula (side area near center). [ICON:ENTER_ZONE]Find Cathedral Rooftop (opposite corner from WP side)."},
 
   {"zone": "The Ossuary", "log_zone": "The Ossuary", "act": 5,
-   "text": "[ICON:COLLECT_ITEM]Clockwise loop — find Sign of Purity from Tomb of First Templar. Grab Crafting Altar. [ICON:ENTER_ZONE]Return to Ruined Square."},
+   "text": "[ICON:COLLECT_ITEM]Clockwise loop — find Sign of Purity from Tomb of First Templar. 💡 Grab Crafting Altar in this zone (optional). [ICON:ENTER_ZONE]Return to Ruined Square."},
 
   {"zone": "The Reliquary", "act": 5,
    "text": "[ICON:COLLECT_ITEM]Explore all corners — find 3x Torments: Hinekora's Hair, Tukohama's Tooth, Valako's Jaw. [ICON:TAKE_REWARD]Skill Point. [ICON:ENTER_ZONE]Return to town to collect Skill Books.",
@@ -357,7 +357,7 @@ WALKTHROUGH = [
    "text": "[ICON:ENTER_ZONE]Stay on path. Under archway → slightly north through cemetery → The Crypt."},
 
   {"zone": "The Crypt", "act": 7,
-   "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:TRIAL]Do Trial (2/6 Cruel) + Crafting Altar. [ICON:COLLECT_ITEM]Find Container of Sins (near Sarcophagus door ❗) → grab Maligaro's Map. [ICON:ENTER_ZONE]Return to Crossroads → Chamber of Sins L1."},
+   "text": "[ICON:WAYPOINT]Grab Waypoint. [ICON:TRIAL]Do Trial (2/6 Cruel). 💡 Crafting Altar inside the Trial (optional). [ICON:COLLECT_ITEM]Find Container of Sins (near Sarcophagus door ❗) → grab Maligaro's Map. [ICON:ENTER_ZONE]Return to Crossroads → Chamber of Sins L1."},
 
   {"zone": "The Chamber of Sins Level 1", "log_zone": "The Chamber of Sins Level 1", "act": 7,
    "text": "[ICON:OPEN_PASSAGE]Find Silk in center → use Maligaro's Map in map device → enter Maligaro's Sanctum."},
@@ -515,7 +515,7 @@ WALKTHROUGH = [
 
   # ── EPILOGUE ────────────────────────────────────────────────────────────────
   {"zone": "Karui Shores", "act": 10,
-   "text": "EPILOGUE\n[ICON:COLLECT_ITEM]Grab Crafting Altar. [ICON:TAKE_REWARD]Talk to Lani → 2x Skill Points. [ICON:COLLECT_ITEM]Talk to Kirac → get a Map. [ICON:KILL_BOSS]Open Map Device → enter → kill boss. ✅ Campaign complete — welcome to the endgame, Exile!"},
+   "text": "EPILOGUE\n💡 Grab Crafting Altar (optional). [ICON:TAKE_REWARD]Talk to Lani → 2x Skill Points. [ICON:COLLECT_ITEM]Talk to Kirac → get a Map. [ICON:KILL_BOSS]Open Map Device → enter → kill boss. ✅ Campaign complete — welcome to the endgame, Exile!"},
 ]
 
 TOWNS = {
