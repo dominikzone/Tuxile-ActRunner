@@ -134,6 +134,7 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint (near entrance). [ICON:ENTER_ZONE]Head north to The Caverns."},
 
   {"zone": "The Caverns", "act": 2,
+   "also_triggers_on": ["The Ancient Pyramid"],
    "text": "[ICON:WAYPOINT]Grab Waypoint. ⚠️ Locked Door needs Apex item — turn in all 3 bandit amulets at town first! [ICON:ENTER_ZONE]Head to Ancient Pyramid."},
 
   {"zone": "The Ancient Pyramid", "act": 2,
@@ -212,6 +213,7 @@ WALKTHROUGH = [
    "text": "[ICON:ENTER_ZONE]Exit SOUTHWEST to The Dried Lake."},
 
   {"zone": "The Dried Lake", "act": 4,
+   "also_triggers_on": ["The Mines Level 1"],
    "text": "[ICON:KILL_BOSS]Kill Voll (head south and west to his camp). [ICON:COLLECT_ITEM]Grab Deshret's Banner. [ICON:ENTER_TOWN]Return to town → click Deshret's Seal north of town → opens The Mines.",
    "required": {"quest_item": "Deshret's Banner"}},
 

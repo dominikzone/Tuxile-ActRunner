@@ -86,6 +86,8 @@ class OverlayBridge(QObject):
         self.completed_data = self.config.get("completed_data", {})
         self.auto_completed_steps = set(int(k) for k in self.completed_data.keys())
         self.highwater_mark = self.config.get("highwater_mark", 0)
+        self._auto_step = self.config.get("auto_step", self.config.get("current_step", 0))
+        self._view_step = self._auto_step
         self._window = None
         self._current_zone = "Waiting..."
         self._substeps = []
@@ -123,24 +125,31 @@ class OverlayBridge(QObject):
 
     @pyqtProperty(int, notify=currentStepIndexChanged)
     def currentStepIndex(self):
-        return self.config.get("current_step", 0)
-
-    @currentStepIndex.setter
-    def currentStepIndex(self, value):
-        if self.config.get("current_step") != value:
-            self.config["current_step"] = value
-            if value > self.highwater_mark:
-                self.highwater_mark = value
-                self.config["highwater_mark"] = value
-            self.currentStepIndexChanged.emit()
-            self.actTitleChanged.emit()
-            self.actInfoChanged.emit()
-            self.update_substeps()
-            self.request_save()
+        return self._view_step
 
     @pyqtProperty(int, notify=currentStepIndexChanged)
     def totalSteps(self):
         return len(WALKTHROUGH)
+
+    @pyqtProperty(bool, notify=currentStepIndexChanged)
+    def isBrowsing(self):
+        return self._view_step != self._auto_step
+
+    def set_auto_step(self, value):
+        if value < 0 or value >= len(WALKTHROUGH):
+            return
+        if value > self.highwater_mark:
+            self.highwater_mark = value
+            self.config["highwater_mark"] = value
+        self._auto_step = value
+        self.config["auto_step"] = value
+        self._view_step = value
+        self.config["current_step"] = value
+        self.request_save()
+        self.currentStepIndexChanged.emit()
+        self.actTitleChanged.emit()
+        self.actInfoChanged.emit()
+        self.update_substeps()
 
     # ── Current zone ──────────────────────────────────────────────────
 
@@ -307,8 +316,12 @@ class OverlayBridge(QObject):
         self.config["completed_data"] = self.completed_data
         self.request_save()
         if len(self.completed_data[idx_str]) >= len(self._substeps):
-            if self.currentStepIndex < len(WALKTHROUGH) - 1:
-                self.currentStepIndex += 1
+            if self._view_step < len(WALKTHROUGH) - 1:
+                self._view_step += 1
+                self.currentStepIndexChanged.emit()
+                self.actTitleChanged.emit()
+                self.actInfoChanged.emit()
+                self.update_substeps()
             else:
                 self.update_substeps()
         else:
@@ -333,35 +346,21 @@ class OverlayBridge(QObject):
 
     @pyqtSlot()
     def onPrevStep(self):
-        if self.currentStepIndex > 0:
-            self.config["current_step"] = self.currentStepIndex - 1
+        if self._view_step > 0:
+            self._view_step -= 1
             self.currentStepIndexChanged.emit()
             self.actTitleChanged.emit()
             self.actInfoChanged.emit()
             self.update_substeps()
-            self.request_save()
 
     @pyqtSlot()
     def onNextStep(self):
-        if self.currentStepIndex < len(WALKTHROUGH) - 1:
-            self.config["current_step"] = self.currentStepIndex + 1
+        if self._view_step < len(WALKTHROUGH) - 1:
+            self._view_step += 1
             self.currentStepIndexChanged.emit()
             self.actTitleChanged.emit()
             self.actInfoChanged.emit()
             self.update_substeps()
-            self.request_save()
-
-    def _set_step_from_zone(self, value):
-        if self.config.get("current_step") != value:
-            self.config["current_step"] = value
-            if value > self.highwater_mark:
-                self.highwater_mark = value
-                self.config["highwater_mark"] = value
-            self.currentStepIndexChanged.emit()
-            self.actTitleChanged.emit()
-            self.actInfoChanged.emit()
-            self.update_substeps()
-            self.request_save()
 
     # ── Font size (step 1, min 9, max 16) ────────────────────────────
 
@@ -461,6 +460,9 @@ class OverlayBridge(QObject):
 
     @pyqtSlot()
     def resetProgress(self):
+        self._auto_step = 0
+        self._view_step = 0
+        self.config["auto_step"] = 0
         self.config["current_step"] = 0
         self.highwater_mark = 0
         self.config["highwater_mark"] = 0
@@ -518,6 +520,8 @@ class OverlayBridge(QObject):
         self.completed_data = self.config.get("completed_data", {})
         self.auto_completed_steps = set(int(k) for k in self.completed_data.keys())
         self.highwater_mark = self.config.get("highwater_mark", 0)
+        self._auto_step = self.config.get("auto_step", self.config.get("current_step", 0))
+        self._view_step = self._auto_step
         self._html_cache = {}
         save_characters(self.char_data)
         self.currentStepIndexChanged.emit()
@@ -559,6 +563,8 @@ class OverlayBridge(QObject):
             self.completed_data = self.config.get("completed_data", {})
             self.auto_completed_steps = set(int(k) for k in self.completed_data.keys())
             self.highwater_mark = self.config.get("highwater_mark", 0)
+            self._auto_step = self.config.get("auto_step", self.config.get("current_step", 0))
+            self._view_step = self._auto_step
             self._html_cache = {}
             self.currentStepIndexChanged.emit()
             self.actTitleChanged.emit()
@@ -757,12 +763,8 @@ class PoEApp:
     def on_zone_changed(self, zone_name):
         self.bridge.currentZone = zone_name
 
-        current_act = WALKTHROUGH[self.bridge.highwater_mark].get("act", 1) \
-            if 0 <= self.bridge.highwater_mark < len(WALKTHROUGH) else 1
-
-        best_match = None
-
-        current_displayed = self.bridge.currentStepIndex
+        current_act = WALKTHROUGH[self.bridge._auto_step].get("act", 1) \
+            if 0 <= self.bridge._auto_step < len(WALKTHROUGH) else 1
 
         for i, step in enumerate(WALKTHROUGH):
             log_name = step.get("log_zone", step["zone"])
@@ -770,22 +772,36 @@ class PoEApp:
                 continue
 
             step_act = step.get("act", 1)
-
-            # Must be same act or next act — never skip ahead more than 1
             if step_act < current_act:
                 continue
             if step_act > current_act + 1:
                 continue
-
-            # Skip steps behind highwater_mark unless it's the one currently displayed
-            if i < self.bridge.highwater_mark and i != current_displayed:
+            if i < self.bridge.highwater_mark:
                 continue
 
-            best_match = i
-            break
+            self.bridge.set_auto_step(i)
+            return
 
-        if best_match is not None:
-            self.bridge._set_step_from_zone(best_match)
+        # Secondary: also_triggers_on — player entered a zone that indicates a
+        # prerequisite step was already completed (e.g. seal opened last session)
+        for i, step in enumerate(WALKTHROUGH):
+            also = step.get("also_triggers_on", [])
+            if not any(z.lower() == zone_name.lower() for z in also):
+                continue
+            step_act = step.get("act", 1)
+            if step_act < current_act:
+                continue
+            if step_act > current_act + 1:
+                continue
+            if i < self.bridge._auto_step:
+                continue
+            # Find the actual step for zone_name that comes at or after step i
+            for j in range(i, len(WALKTHROUGH)):
+                target = WALKTHROUGH[j]
+                if target.get("log_zone", target["zone"]).lower() == zone_name.lower():
+                    self.bridge.set_auto_step(j)
+                    return
+            break
 
     def on_waypoint_discovered(self): pass
     def on_quest_item_found(self, item_name): pass
