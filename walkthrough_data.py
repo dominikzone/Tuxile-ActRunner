@@ -162,7 +162,7 @@ WALKTHROUGH = [
    "text": "[ICON:WAYPOINT]Grab Waypoint (near large statues). [ICON:TRIAL]Enter Catacombs nearby for Trial (5/6). ⚠️ Ignore the Ornate Chest. [ICON:ENTER_ZONE]Head north, hug top wall west → The Battlefront."},
 
   {"zone": "The Catacombs", "act": 3,
-   "text": "[ICON:TRIAL]Do Trial of Ascendancy (5/6). Grab Recipe Altar. [ICON:ENTER_ZONE]Return to Marketplace.",
+   "text": "[ICON:TRIAL]Do Trial of Ascendancy (5/6). 💡 Recipe Altar nearby (optional). [ICON:ENTER_ZONE]Return to Marketplace.",
    "required": {"trial": True}},
 
   {"zone": "The Battlefront", "act": 3,
@@ -218,7 +218,7 @@ WALKTHROUGH = [
    "required": {"quest_item": "Deshret's Banner"}},
 
   {"zone": "The Mines Level 1", "act": 4,
-   "text": "[ICON:COLLECT_ITEM]Grab Recipe Altar along main path. Ignore Sulphite/Niko (league content). [ICON:ENTER_ZONE]Proceed to Level 2."},
+   "text": "💡 Recipe Altar along main path (optional). Ignore Sulphite/Niko (league content). [ICON:ENTER_ZONE]Proceed to Level 2."},
 
   {"zone": "The Mines Level 2", "act": 4,
    "text": "[ICON:COLLECT_ITEM]Follow cart tracks to Deshret's Spirit ❗. [ICON:KILL_BOSS]Kill Hammerstorm. [ICON:TAKE_REWARD]Click Spirit — Skill Point. [ICON:ENTER_ZONE]Continue to Crystal Veins.",
@@ -245,7 +245,7 @@ WALKTHROUGH = [
    "text": "⚠️ Stock up — long zone chain begins here! [ICON:ENTER_ZONE]Head north-center to Level 2."},
 
   {"zone": "The Belly of the Beast Level 2", "act": 4,
-   "text": "[ICON:KILL_BOSS]Kill Piety (dodge rotating beam — it varies speed). [ICON:COLLECT_ITEM]Grab Recipe Altar. [ICON:ENTER_ZONE]Proceed up to The Harvest."},
+   "text": "[ICON:KILL_BOSS]Kill Piety (dodge rotating beam — it varies speed). 💡 Recipe Altar nearby (optional). [ICON:ENTER_ZONE]Proceed up to The Harvest."},
 
   {"zone": "The Harvest", "act": 4,
    "text": "[ICON:WAYPOINT]Grab Waypoint. Loop entire zone for 3 bosses: [ICON:KILL_BOSS]Kill Shavronne → Malachai's Entrails. [ICON:KILL_BOSS]Kill Doedre → Malachai's Lungs. [ICON:KILL_BOSS]Kill Maligaro → Malachai's Heart. [ICON:TAKE_REWARD]Return all 3 to Piety at WP → opens Black Core."},

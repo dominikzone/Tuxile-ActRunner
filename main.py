@@ -763,44 +763,35 @@ class PoEApp:
     def on_zone_changed(self, zone_name):
         self.bridge.currentZone = zone_name
 
+        # Get current act
         current_act = WALKTHROUGH[self.bridge._auto_step].get("act", 1) \
             if 0 <= self.bridge._auto_step < len(WALKTHROUGH) else 1
 
         for i, step in enumerate(WALKTHROUGH):
+            # Match by zone name
             log_name = step.get("log_zone", step["zone"])
             if log_name.lower() != zone_name.lower():
-                continue
+                # Also check also_triggers_on list
+                also = step.get("also_triggers_on", [])
+                if not any(z.lower() == zone_name.lower() for z in also):
+                    continue
 
             step_act = step.get("act", 1)
+
+            # Skip steps from previous acts
             if step_act < current_act:
                 continue
+
+            # Skip steps too far ahead (more than 1 act forward)
             if step_act > current_act + 1:
                 continue
-            if i < self.bridge.highwater_mark:
-                continue
 
-            self.bridge.set_auto_step(i)
-            return
-
-        # Secondary: also_triggers_on — player entered a zone that indicates a
-        # prerequisite step was already completed (e.g. seal opened last session)
-        for i, step in enumerate(WALKTHROUGH):
-            also = step.get("also_triggers_on", [])
-            if not any(z.lower() == zone_name.lower() for z in also):
-                continue
-            step_act = step.get("act", 1)
-            if step_act < current_act:
-                continue
-            if step_act > current_act + 1:
-                continue
+            # Only advance forward — never go back automatically
             if i < self.bridge._auto_step:
                 continue
-            # Find the actual step for zone_name that comes at or after step i
-            for j in range(i, len(WALKTHROUGH)):
-                target = WALKTHROUGH[j]
-                if target.get("log_zone", target["zone"]).lower() == zone_name.lower():
-                    self.bridge.set_auto_step(j)
-                    return
+
+            # Match found — advance
+            self.bridge.set_auto_step(i)
             break
 
     def on_waypoint_discovered(self): pass
