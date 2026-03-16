@@ -318,6 +318,15 @@ class OverlayBridge(QObject):
         if len(self.completed_data[idx_str]) >= len(self._substeps):
             if self._view_step < len(WALKTHROUGH) - 1:
                 self._view_step += 1
+                # Sync _auto_step forward so on_zone_changed
+                # does not reset view back to completed step
+                if self._view_step > self._auto_step:
+                    self._auto_step = self._view_step
+                    self.config["auto_step"] = self._auto_step
+                    if self._auto_step > self.highwater_mark:
+                        self.highwater_mark = self._auto_step
+                        self.config["highwater_mark"] = self.highwater_mark
+                    self.request_save()
                 self.currentStepIndexChanged.emit()
                 self.actTitleChanged.emit()
                 self.actInfoChanged.emit()
