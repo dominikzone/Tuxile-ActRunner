@@ -8,3 +8,4 @@ characters.json
 .env
 plans/
 poe_path.txt
+.claude/
