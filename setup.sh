@@ -16,11 +16,12 @@ then
     exit 1
 fi
 
-echo "Creating and activating virtual environment..."
-python3 -m venv .venv
-source .venv/bin/activate
+echo "Creating virtual environment..."
+python3 -m venv venv
+source venv/bin/activate
 
 echo "Installing dependencies..."
 pip install -r requirements.txt
 
-echo "Setup complete!\nYou can now run the application using: ./run.sh"
+echo ""
+echo "Setup complete! You can now run the application using: ./run.sh"

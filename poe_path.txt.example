@@ -1,7 +1,1 @@
-# Tuxile ActRunner — Path of Exile configuration
-# Paste the full path to your Client.txt log file below.
-# Example (Steam default):
-# /home/USER/.steam/steam/steamapps/common/Path of Exile/logs/Client.txt
-# Example (Proton/custom):
-# /mnt/drive/SteamLibrary/steamapps/common/Path of Exile/logs/Client.txt
-
+/path/to/your/Path of Exile/logs/Client.txt

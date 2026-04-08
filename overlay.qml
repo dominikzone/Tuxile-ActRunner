@@ -302,6 +302,14 @@ Window {
                         font.letterSpacing: 1
                     }
 
+                    Text {
+                        visible: bridge.isBrowsing
+                        text: " BROWSING"
+                        color: "#ffcc00"; font.family: "Barlow Condensed"
+                        font.pixelSize: 8; font.weight: Font.DemiBold
+                        font.letterSpacing: 0.5
+                    }
+
                     Item { Layout.fillWidth: true }
 
                     Text {

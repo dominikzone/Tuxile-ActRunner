@@ -4,6 +4,7 @@ venv/
 *.pyc
 *.pyo
 config.json
+characters.json
 .env
 plans/
 poe_path.txt
