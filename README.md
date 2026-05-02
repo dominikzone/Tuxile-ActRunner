@@ -1,74 +1,106 @@
 # 🐧 Tuxile ActRunner
 
-Lightweight always-on-top overlay for Path of Exile 1 on Linux.
-Tracks campaign progress automatically via Client.txt log parsing.
+> A Path of Exile 1 campaign walkthrough overlay for Linux — built natively with Python & PyQt6.
+
+![Platform](https://img.shields.io/badge/platform-Linux-blue?style=flat-square)
+![Python](https://img.shields.io/badge/python-3.8+-yellow?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![Status](https://img.shields.io/badge/status-released-brightgreen?style=flat-square)
+
+---
+
+## 🎯 What is Tuxile ActRunner?
+
+Tuxile ActRunner is a lightweight, native Linux overlay for **Path of Exile 1** that guides you through all 10 acts without ever alt-tabbing. It automatically tracks your progress by reading the PoE `Client.txt` log file — when you enter a new zone, the overlay updates instantly.
+
 Inspired by [Lailloken UI](https://github.com/Lailloken/Lailloken-UI).
+Built as part of the **Tuxile** ecosystem alongside [Tuxile PriceChecker](https://github.com/dominikzone/Tuxile-PriceChecker).
+
+---
 
 ## ✨ Features
 
-- Always-on-top borderless overlay
-- Auto-tracking via Client.txt — zone changes update the overlay automatically
-- Smart town/hideout logic — holds current step so you don't miss quest turn-ins
-- Manual navigation with ▲/▼ arrows
-- Multiple character profiles
-- Adjustable font size (A- / A+)
-- Persistent state — remembers your progress between sessions
+- 🗺️ **Step-by-step campaign guide** — all 10 acts with quest and passive point locations
+- 🤖 **Auto-tracking** — reads `Client.txt` to update the overlay when you change zones
+- 🏙️ **Smart town logic** — holds the current step in towns so you never miss a quest turn-in
+- 👤 **Multiple character profiles** — switch between characters without losing progress
+- 🔼 **Manual navigation** — use ▲/▼ arrows to browse steps freely
+- 🔤 **Adjustable font size** — A- / A+ buttons to fit any screen
+- 💾 **Persistent state** — remembers your progress, window position, and size between sessions
+- ⚡ **Always-on-top overlay** — borderless, transparent, stays above the game
+- 🔒 **No login required** — no OAuth, no account, no registration
 
-## 🔧 Requirements
-
-- Linux (tested on Linux Mint)
-- Python 3.8+
-- Git
+---
 
 ## 🚀 Installation
 
-### 1. Clone the repository
+See [INSTALL.md](INSTALL.md) for full setup instructions.
+
+### Quick start
+
 ```bash
 git clone https://github.com/dominikzone/Tuxile-ActRunner.git
 cd Tuxile-ActRunner
-```
-
-### 2. Run setup
-```bash
-chmod +x setup.sh
-./setup.sh
-```
-
-### 3. Configure your PoE path
-```bash
-cp poe_path.txt.example poe_path.txt
-```
-
-Open `poe_path.txt` and paste the full path to your `Client.txt`:
-- Steam default: `/home/USERNAME/.steam/steam/steamapps/common/Path of Exile/logs/Client.txt`
-- Custom library: `/mnt/YOUR_DRIVE/SteamLibrary/steamapps/common/Path of Exile/logs/Client.txt`
-
-> **Tip:** Right-click Path of Exile in Steam → Properties → Local Files → Browse
-
-### 4. Launch
-```bash
-chmod +x run.sh
+chmod +x setup.sh && ./setup.sh
 ./run.sh
 ```
 
-## 🎮 How to use
+---
 
-- The overlay auto-updates when you enter a new zone
-- ▲/▼ — manually browse steps
-- ⚔ CharName — switch character profiles
-- A- / A+ — adjust font size
-- R — reset progress for current character
+## 🕹️ How to use
 
-## 🛠 Troubleshooting
+1. Launch **Tuxile ActRunner** via `./run.sh`
+2. On first launch — select your `Client.txt` file when prompted
+3. Open **Path of Exile 1** and enter a zone
+4. The overlay updates automatically to the correct step
+5. Use ▲/▼ to browse steps manually if needed
 
-- Warning about missing path → check `poe_path.txt`
-- Zones not updating → verify `Client.txt` path is correct
-- Python not found → `sudo apt install python3 python3-pip`
-- Permission denied → `chmod +x run.sh`
+### Controls
 
-## 📄 License
-
-MIT License — see [LICENSE](LICENSE) file.
+| Control | Action |
+|---------|--------|
+| ▲ / ▼ | Navigate steps manually |
+| ⚔ CharName | Switch character profile |
+| A- / A+ | Adjust font size |
+| R | Reset progress for current character |
 
 ---
+
+## 📡 Data Sources
+
+| Source | Purpose |
+|--------|---------|
+| `Client.txt` (local file) | Zone change detection |
+| Built-in walkthrough data | Campaign steps and quest info |
+
+No internet connection required — everything runs locally.
+
+---
+
+## 🗺️ Roadmap
+
+- [x] Client.txt log parsing — automatic zone tracking
+- [x] Full 10-act campaign walkthrough data
+- [x] Smart town/hideout logic
+- [x] Multiple character profiles
+- [x] Persistent state (progress, position, size)
+- [x] Adjustable overlay (font size, position)
+- [ ] PoE2 support *(future — separate project)*
+
+---
+
+## ⚠️ Disclaimer
+
+Tuxile ActRunner reads a local log file (`Client.txt`) only — it does **not** interact with the PoE client process, make any network requests, or modify any game files. Use at your own risk.
+
 *This product isn't affiliated with or endorsed by Grinding Gear Games in any way.*
+
+---
+
+## 🛠️ Built with
+
+- [PyQt6](https://pypi.org/project/PyQt6/) — UI framework & QML rendering
+
+---
+
+*Part of the **Tuxile** tools ecosystem for Path of Exile on Linux* ⚔️
